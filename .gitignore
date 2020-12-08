@@ -6,7 +6,7 @@ logs
 plugins
 device.json
 identifier.sqlite
-src/test
+src/test/kotlin/
 
 # Ignore Gradle GUI config
 gradle-app.setting
