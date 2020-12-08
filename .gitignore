@@ -1,5 +1,12 @@
 .gradle
 /build/
+config
+data
+logs
+plugins
+device.json
+identifier.sqlite
+src/test
 
 # Ignore Gradle GUI config
 gradle-app.setting
