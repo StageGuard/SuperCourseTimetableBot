@@ -2,25 +2,28 @@ package stageguard.sctimetable.api
 
 import kotlinx.serialization.Serializable
 
+/**
+ * 登录返回包
+ **/
 @Serializable
 data class LoginReceiptDTO(
-    val `data`: Data,
+    val `data`: __InternalData,
     val status: Int
 )
 
 @Serializable
-data class Data(
+data class __InternalData(
     val isRegister: Int,
     val statusInt: Int,
-    val student: Student
+    val student: __InternalStudent
 )
 
 @Serializable
-data class Student(
+data class __InternalStudent(
     val academyId: Int,
     val academyName: String,
     val addTime: Long,
-    val attachmentBO: AttachmentBO,
+    val attachmentBO: __InternalAttachmentBO,
     val avatarUrl: String,
     val avaterReview: Int,
     val beginYear: Int,
@@ -48,7 +51,7 @@ data class Student(
     val oldNickName: String,
     val oldnicknamereview: Int,
     val organization: String,
-    val photoBO: List<PhotoBO>,
+    val photoBO: List<__InternalPhotoBO>,
     val profession: String,
     val publishType: Int,
     val rate: Int,
@@ -71,20 +74,20 @@ data class Student(
 )
 
 @Serializable
-data class AttachmentBO(
+data class __InternalAttachmentBO(
     val contactStatus: Int,
     val courseRemind: Int,
     val courseRemindTime: Long,
     val dayOfWeek: Int,
     val defaultImgUrl: List<String>,
     val defaultOpen: Int,
-    val gopushBO: GopushBO,
+    val gopushBO: __InternalGopushBO,
     val hasTermList: Boolean,
     val hasVerCode: Boolean,
     val identity: String,
-    val myTermList: List<MyTerm>,
+    val myTermList: List<__InternalMyTerm>,
     val needSASL: Int,
-    val nowWeekMsg: NowWeekMsg,
+    val nowWeekMsg: __InternalNowWeekMsg,
     val openGopush: Boolean,
     val openJpush: Boolean,
     val openRubLessonInt: Int,
@@ -93,17 +96,17 @@ data class AttachmentBO(
     val rate: Int,
     val realNameMsgNum: Int,
     val rubLessonTips: String,
-    val schoolInfo: SchoolInfo,
+    val schoolInfo: __InternalSchoolInfo,
     val showRate: Boolean,
     val supportAuto: Boolean,
-    val termBOList: List<TermBO>,
+    val termBOList: List<__InternalTermBO>,
     val type: String,
     val vipLevel: Int,
     val xmppDomain: String
 )
 
 @Serializable
-data class PhotoBO(
+data class __InternalPhotoBO(
     val avatar: Boolean,
     val id: Int,
     val photoId: Int,
@@ -113,17 +116,17 @@ data class PhotoBO(
 )
 
 @Serializable
-data class GopushBO(
+data class __InternalGopushBO(
     val aliasName: String,
     val mid: Int,
     val pmid: Int
 )
 
 @Serializable
-data class MyTerm(
+data class __InternalMyTerm(
     val addTime: Long,
     val beginYear: Int,
-    val courseTimeList: CourseTimeList,
+    val courseTimeList: __InternalCourseTimeList,
     val id: Int,
     val maxCount: Int,
     val studentId: Int,
@@ -131,29 +134,29 @@ data class MyTerm(
 )
 
 @Serializable
-data class NowWeekMsg(
+data class __InternalNowWeekMsg(
     val nowWeek: Int,
     val setTime: Long
 )
 
 @Serializable
-data class SchoolInfo(
+data class __InternalSchoolInfo(
     val firstDayOfWeek: Int
 )
 
 @Serializable
-data class TermBO(
+data class __InternalTermBO(
     val content: String,
     val termId: Int
 )
 
 @Serializable
-data class CourseTimeList(
-    val courseTimeBO: List<CourseTimeBO>
+data class __InternalCourseTimeList(
+    val courseTimeBO: List<__InternalCourseTimeBO>
 )
 
 @Serializable
-data class CourseTimeBO(
+data class __InternalCourseTimeBO(
     val beginTimeStr: String,
     val endTimeStr: String
 )

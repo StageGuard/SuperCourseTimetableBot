@@ -2,23 +2,26 @@ package stageguard.sctimetable.api
 
 import kotlinx.serialization.Serializable
 
+/**
+ * 获取课程返回包
+ **/
 @Serializable
 data class CourseReceiptDTO(
-    val `data`: GenericCourseData,
+    val `data`: __InternalGenericCourseData,
     val status: Int
 )
 
 @Serializable
-data class GenericCourseData(
+data class __InternalGenericCourseData(
     val endSchoolYear: String,
-    val lessonList: List<Lesson>,
+    val lessonList: List<__InternalLesson>,
     val maxCount: Int,
     val semester: String,
     val startSchoolYear: String
 )
 
 @Serializable
-data class Lesson(
+data class __InternalLesson(
     val autoEntry: Boolean,
     val courseId: Int,
     val courseMark: Int,

@@ -14,9 +14,10 @@ suspend fun main() {
     PluginMain.load()
     PluginMain.enable()
 
-    MiraiConsole.addBot(202746796, "xzg0410&root&.") {
+    MiraiConsole.addBot(123123123, "123123123") {
         fileBasedDeviceInfo()
     }.alsoLogin()
-
     MiraiConsole.job.join()
+
 }
+

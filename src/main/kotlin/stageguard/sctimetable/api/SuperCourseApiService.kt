@@ -6,16 +6,26 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.util.*
 import io.ktor.utils.io.*
-import kotlinx.coroutines.runBlocking
-import stageguard.sctimetable.PluginMain
+import kotlinx.coroutines.*
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import stageguard.sctimetable.PluginConfig
 import java.util.regex.Pattern
 
-/* *
- * 这个是用在登录返回到获取课表之间的用于存储cookie的结构体
- * */
-data class LoginCookieInfo(
+/**
+ * 用于封装必要的两个cookie字段
+ **/
+data class LoginCookieData(
     val jSessionId: String = "",
     val serverId: String = ""
+)
+
+/**
+ * 用于封装用户名和密码
+ **/
+data class LoginInfoData(
+    val username: String,
+    val password: String
 )
 
 object SuperCourseApiService {
@@ -27,19 +37,17 @@ object SuperCourseApiService {
     private const val PHONE_VERSION = "30" // Android R
     private const val PHONE_MODEL = "vince" // XiaoMi Redmi 5 Plus
 
-
     private val client = HttpClient(CIO)
 
     private val jSessionIdRegExp = Pattern.compile("JSESSIONID=([0-9A-F]+-[a-z1-9]+);")
     private val serverIdRegexp = Pattern.compile("SERVERID=([0-9a-f|]+);")
 
-
-    suspend fun login(account: Long, password: String,  block: suspend (String) -> Unit) : LoginCookieInfo {
+    suspend fun loginViaPassword(loginInfo: LoginInfoData, cookieBlock: (LoginCookieData) -> Unit) : LoginReceiptDTO {
         return client.post<HttpStatement> {
             url("$BASE_URL/V2/StudentSkip/loginCheckV4.action")
-            parameter("account", EncryptionUtils.encrypt(account.toString()))
-            parameter("password", EncryptionUtils.encrypt(password))
-            parameter("platform", 1)
+            parameter("account", EncryptionUtils.encrypt(loginInfo.username))
+            parameter("password", EncryptionUtils.encrypt(loginInfo.password))
+            parameter("platform", PLATFORM)
             parameter("versionNumber", VERSION_NUMBER)
             parameter("phoneBrand", PHONE_BRAND)
             parameter("phoneVersion", PHONE_VERSION)
@@ -47,52 +55,44 @@ object SuperCourseApiService {
             parameter("updateInfo", false)
             parameter("channel", "ppMarket")
         }.execute { response ->
-            val content: String = response.content.readUTF8Line() ?: ""
-            val cookieList = ({
-                var result: List<String> = arrayListOf("", "")
-                response.headers.forEach { s: String, list: List<String> ->
-                    if(s.contains("Cookie")) {
-                        result = list
-                        return@forEach
-                    }
+            var cookieList: List<String> = arrayListOf("", "")
+            response.headers.forEach { s: String, list: List<String> ->
+                if (s.contains("Cookie")) {
+                    cookieList = list
+                    return@forEach
                 }
-                result
-            }())
-            block(content)
-            LoginCookieInfo(cookieList[0].let {
+            }
+            cookieBlock(LoginCookieData(cookieList[0].let {
                 val jSessionMatcher = jSessionIdRegExp.matcher(it)
                 if(jSessionMatcher.find()) {
                     jSessionMatcher.group(1)
-                } else {
-                    ""
-                }
+                } else ""
             }, cookieList[1].let {
                 val serverIdMatcher = serverIdRegexp.matcher(it)
                 if(serverIdMatcher.find()) {
                     serverIdMatcher.group(1)
-                } else {
-                    ""
-                }
-            })
+                } else ""
+            }))
+            Json.decodeFromString(response.content.readUTF8Line() ?: "{}")
         }
     }
 
-    suspend fun getCourse(loginCookieInfo: LoginCookieInfo, beginYear: Int, term: Int, block: suspend (String) -> Unit) {
-            client.post<HttpStatement> {
-                url("$BASE_URL/V2/Course/getCourseTableFromServer.action")
-                header("Cookie", "JSESSIONID=${loginCookieInfo.jSessionId};SERVERID=${loginCookieInfo.serverId}")
-                parameter("beginYear", beginYear)
-                parameter("term", term)
-                parameter("platform", 1)
-                parameter("versionNumber", VERSION_NUMBER)
-                parameter("phoneBrand", PHONE_BRAND)
-                parameter("phoneVersion", PHONE_VERSION)
-                parameter("phoneModel", PHONE_MODEL)
-            }.execute { response ->
-                val content = response.content.readUTF8Line()
-                content?.let { block(it) }
-            }
+    suspend fun getCourses(cookie: LoginCookieData) : CourseReceiptDTO {
+        return client.post<HttpStatement> {
+            url("$BASE_URL/V2/Course/getCourseTableFromServer.action")
+            header("Cookie", "JSESSIONID=${cookie.jSessionId};SERVERID=${cookie.serverId}")
+            parameter("beginYear", PluginConfig.beginYear)
+            parameter("term", PluginConfig.term)
+            parameter("platform", 1)
+            parameter("versionNumber", VERSION_NUMBER)
+            parameter("phoneBrand", PHONE_BRAND)
+            parameter("phoneVersion", PHONE_VERSION)
+            parameter("phoneModel", PHONE_MODEL)
+        }.execute { response ->
+            Json.decodeFromString(response.content.readUTF8Line() ?: "{}")
+        }
     }
+
     fun closeHttpClient() {
         runBlocking { client.close() }
     }
