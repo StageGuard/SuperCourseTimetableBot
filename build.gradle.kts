@@ -19,6 +19,7 @@ val exposedVersion = "0.25.1"
 val hikariVersion = "3.4.5"
 val mysqlVersion = "8.0.19"
 val yamlKtVersion = "0.7.4"
+val quartzVersion = "2.3.2"
 
 dependencies {
     testImplementation(kotlin("test-junit5"))
@@ -31,6 +32,7 @@ dependencies {
     implementation("com.zaxxer:HikariCP:$hikariVersion")
     implementation("mysql:mysql-connector-java:$mysqlVersion")
     implementation("net.mamoe.yamlkt:yamlkt-jvm:$yamlKtVersion")
+    implementation("org.quartz-scheduler:quartz:$quartzVersion")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {

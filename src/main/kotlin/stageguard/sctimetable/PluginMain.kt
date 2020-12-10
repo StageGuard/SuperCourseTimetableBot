@@ -1,20 +1,13 @@
-@file:Suppress("unused")
-
 package stageguard.sctimetable
 
-import net.mamoe.mirai.console.command.CommandManager.INSTANCE.register
-import net.mamoe.mirai.console.command.CommandSender
-import net.mamoe.mirai.console.command.CompositeCommand
+import kotlinx.coroutines.Job
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
-import net.mamoe.mirai.console.util.cast
-import net.mamoe.mirai.event.events.GroupEvent
-import net.mamoe.mirai.event.subscribeAlways
-import net.mamoe.mirai.message.MessageEvent
-import net.mamoe.mirai.message.data.Image
-import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.info
 import stageguard.sctimetable.api.SuperCourseApiService
+import stageguard.sctimetable.database.Database
+import stageguard.sctimetable.service.RequestHandlerService
+import stageguard.sctimetable.service.TimeProviderService
 
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
@@ -25,23 +18,13 @@ object PluginMain : KotlinPlugin(
 ) {
     override fun onEnable() {
         PluginConfig.reload()
-        SCCompositeCommand.register()
+        Database.connect()
+        TimeProviderService.start()
+        RequestHandlerService.start()
         logger.info { "Plugin loaded" }
-
     }
 
     override fun onDisable() {
         SuperCourseApiService.closeHttpClient()
-    }
-}
-
-object SCCompositeCommand : CompositeCommand(
-    PluginMain,
-    "bind",
-    //description = "Bind your account."
-) {
-    @SubCommand
-    suspend fun CommandSender.bind(scAccount: Long, scPassword: String) {
-
     }
 }

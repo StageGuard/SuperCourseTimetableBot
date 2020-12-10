@@ -8,23 +8,6 @@ import kotlinx.serialization.Serializable
 import net.mamoe.yamlkt.Comment
 
 object PluginConfig : AutoSavePluginConfig("SG.SCTimeTableBotConfig") {
-    @ValueDescription("""
-        当前年份，代表插件将要解析这个年份的课表.
-        默认值：插件第一次运行时的年份.
-    """)
-    val beginYear by value(Calendar.getInstance().get(Calendar.YEAR))
-
-    @ValueDescription("""
-        当前学期，代表插件将要解析这个学期的课表.
-        "1" 代表秋季学期，从当年9月到来年1月.
-        "2" 代表夏季学期，从当年3月到当年7月.
-        默认值：插件第一次运行时月份代表的学期.
-    """)
-    val term by value(when(Calendar.getInstance().get(Calendar.MONTH)) {
-        1, 2, 3, 4, 5, 6 -> 2
-        else -> 1
-    })
-
     val database by value<DatabaseConfig>()
 }
 

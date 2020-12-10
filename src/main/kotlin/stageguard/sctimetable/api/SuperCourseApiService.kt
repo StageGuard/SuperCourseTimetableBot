@@ -10,14 +10,15 @@ import kotlinx.coroutines.*
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import stageguard.sctimetable.PluginConfig
+import stageguard.sctimetable.service.TimeProviderService
 import java.util.regex.Pattern
 
 /**
  * 用于封装必要的两个cookie字段
  **/
 data class LoginCookieData(
-    val jSessionId: String = "",
-    val serverId: String = ""
+    var jSessionId: String = "",
+    var serverId: String = ""
 )
 
 /**
@@ -81,8 +82,8 @@ object SuperCourseApiService {
         return client.post<HttpStatement> {
             url("$BASE_URL/V2/Course/getCourseTableFromServer.action")
             header("Cookie", "JSESSIONID=${cookie.jSessionId};SERVERID=${cookie.serverId}")
-            parameter("beginYear", PluginConfig.beginYear)
-            parameter("term", PluginConfig.term)
+            parameter("beginYear", TimeProviderService.currentSemesterBeginYear)
+            parameter("term", TimeProviderService.currentSemester)
             parameter("platform", 1)
             parameter("versionNumber", VERSION_NUMBER)
             parameter("phoneBrand", PHONE_BRAND)
