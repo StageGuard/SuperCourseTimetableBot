@@ -20,6 +20,7 @@ val hikariVersion = "3.4.5"
 val mysqlVersion = "8.0.19"
 val yamlKtVersion = "0.7.4"
 val quartzVersion = "2.3.2"
+val miraiSlf4jBridgeVersion = "1.0.1"
 
 dependencies {
     testImplementation(kotlin("test-junit5"))
@@ -33,6 +34,8 @@ dependencies {
     implementation("mysql:mysql-connector-java:$mysqlVersion")
     implementation("net.mamoe.yamlkt:yamlkt-jvm:$yamlKtVersion")
     implementation("org.quartz-scheduler:quartz:$quartzVersion")
+    implementation("net.mamoe:mirai-slf4j-bridge:$miraiSlf4jBridgeVersion")
+    //implementation("org.slf4j:slf4j-simple:1.7.1")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {

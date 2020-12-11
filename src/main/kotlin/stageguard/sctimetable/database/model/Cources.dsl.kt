@@ -11,7 +11,7 @@ import org.jetbrains.exposed.sql.Table
  * 它是一个class而不是object，因为会有多个用户。
  * @param tableName table名称，一般表示为```用户的qq号```
  **/
-class Courses(tableName: String) : Table(tableName) {
+class Courses(qq: Long) : Table("courses_$qq") {
     /**
      * 课程ID
      **/
@@ -51,9 +51,9 @@ class Courses(tableName: String) : Table(tableName) {
     /**
      * 这个时间表的开始年份
      **/
-    val beginYear: Column<Int> = SchoolTimetables.integer("beginYear")
+    var beginYear: Column<Int> = integer("beginYear")
     /**
      * 这个时间表对应的学期
      **/
-    val semester: Column<Int> = SchoolTimetables.integer("semester")
+    var semester: Column<Int> = integer("semester")
 }

@@ -12,6 +12,12 @@ data class CourseReceiptDTO(
 )
 
 @Serializable
+data class ErrorCourseReceiptDTO(
+    val title: String,
+    val message: String
+)
+
+@Serializable
 data class __InternalGenericCourseData(
     val endSchoolYear: String,
     val lessonList: List<__InternalLesson>,

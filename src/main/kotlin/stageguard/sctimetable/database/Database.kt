@@ -2,21 +2,26 @@ package stageguard.sctimetable.database
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import net.mamoe.mirai.utils.error
 import net.mamoe.mirai.utils.info
+import net.mamoe.mirai.utils.verbose
 import net.mamoe.mirai.utils.warning
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.statements.StatementContext
+import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransactionAsync
+import org.slf4j.LoggerFactory
 import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.database.model.Courses
 import stageguard.sctimetable.database.model.SchoolTimetables
 import stageguard.sctimetable.database.model.Users
+import java.util.logging.LogManager
 
 object Database {
 
@@ -47,13 +52,21 @@ object Database {
         } catch (ex: Exception) {
             when(ex) {
                 //当配置文件的配置不符合要求时throw
-                is InvalidDatabaseConfigException -> {  }
+                is InvalidDatabaseConfigException -> {
+                    throw ex
+                }
             }
         }
     }
 
     private fun initDatabase() { query {
+        it.addLogger(object : SqlLogger {
+            override fun log(context: StatementContext, transaction: Transaction) {
+                PluginMain.logger.verbose { "SQL: ${context.expandArgs(transaction)}" }
+            }
+        })
         SchemaUtils.create(Users, SchoolTimetables)
+
     } }
 
     private fun hikariDataSourceProvider() : HikariDataSource = HikariDataSource(HikariConfig().apply {

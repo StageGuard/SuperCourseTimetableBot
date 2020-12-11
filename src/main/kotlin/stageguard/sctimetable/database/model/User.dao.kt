@@ -30,13 +30,13 @@ object Users : IntIdTable() {
      **/
     val schoolId: Column<Int> = integer("schoolId")
     /**
-     * 用户JSESSIONID，从[loginViaPassword]获取，方便下次同步课程
+     * 用户账户名称，方便下次同步课程
      **/
-    val jSessionId: Column<String> = varchar("jSessionId", 100)
+    val account: Column<String> = varchar("account", 20)
     /**
-     * 用户用户SERVERID，从[loginViaPassword]获取，方便下次同步课程
+     * 用户密码，通过AES加密存储，方便下次同步课程
      **/
-    val serverId: Column<String> = varchar("serverId", 100)
+    val password: Column<String> = varchar("password", 50)
 }
 
 /**
@@ -48,7 +48,7 @@ class User(id: EntityID<Int>) : IntEntity(id) {
     var studentId by Users.studentId
     var name by Users.name
     var schoolId by Users.schoolId
-    var jSessionId by Users.jSessionId
-    var serverId by Users.serverId
+    var account by Users.account
+    var password by Users.password
 }
 

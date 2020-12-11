@@ -12,6 +12,19 @@ data class LoginReceiptDTO(
 )
 
 @Serializable
+data class ErrorLoginReceiptDTO(
+    val `data`: __InternalErrorLoginMsg,
+    val status: Int
+)
+
+@Serializable
+data class __InternalErrorLoginMsg(
+    val errorStr: String,
+    val isRegister: Int,
+    val statusInt: Int
+)
+
+@Serializable
 data class __InternalData(
     val isRegister: Int,
     val statusInt: Int,

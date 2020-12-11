@@ -1,5 +1,8 @@
 package stageguard.sctimetable.database.model
 
+import org.jetbrains.exposed.dao.IntEntity
+import org.jetbrains.exposed.dao.IntEntityClass
+import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Column
 import stageguard.sctimetable.service.TimeProviderService
@@ -13,7 +16,7 @@ object SchoolTimetables : IntIdTable() {
     /**
      * 学校ID
      **/
-    val schoolId: Column<Int> = integer("schoolId")
+    val schoolId: Column<Int> = integer("schoolId").uniqueIndex()
     /**
      * 学校名称
      **/
@@ -43,4 +46,18 @@ object SchoolTimetables : IntIdTable() {
      **/
     val unixTimeWhenAdd: Column<Long> = long("unixTimeWhenAdd")
     val weekPeriodWhenAdd: Column<Int> = integer("weekPeriodWhenAdd")
+}
+
+/**
+ * SchoolTimetable DAO 是表示[SchoolTimetables]中每一个项目的抽象类
+ **/
+class SchoolTimetable(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<SchoolTimetable>(SchoolTimetables)
+    var schoolId by SchoolTimetables.id
+    var schoolName by SchoolTimetables.schoolName
+    var beginYear by SchoolTimetables.beginYear
+    var semester by SchoolTimetables.semester
+    var scheduledTimeList by SchoolTimetables.scheduledTimeList
+    var unixTimeWhenAdd by SchoolTimetables.unixTimeWhenAdd
+    var weekPeriodWhenAdd by SchoolTimetables.weekPeriodWhenAdd
 }

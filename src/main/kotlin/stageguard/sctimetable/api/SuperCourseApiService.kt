@@ -9,8 +9,8 @@ import io.ktor.utils.io.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.service.TimeProviderService
+import stageguard.sctimetable.utils.Either
 import java.util.regex.Pattern
 
 /**
@@ -43,11 +43,19 @@ object SuperCourseApiService {
     private val jSessionIdRegExp = Pattern.compile("JSESSIONID=([0-9A-F]+-[a-z1-9]+);")
     private val serverIdRegexp = Pattern.compile("SERVERID=([0-9a-f|]+);")
 
-    suspend fun loginViaPassword(loginInfo: LoginInfoData, cookieBlock: (LoginCookieData) -> Unit) : LoginReceiptDTO {
-        return client.post<HttpStatement> {
+    suspend fun loginViaPassword(
+        loginInfo: LoginInfoData,
+        cookieBlock: (LoginCookieData) -> Unit
+    ) : Either<LoginReceiptDTO, ErrorLoginReceiptDTO> = loginViaPassword(loginInfo.username, loginInfo.password, cookieBlock)
+    suspend fun loginViaPassword(
+        username: String,
+        password: String,
+        cookieBlock: (LoginCookieData) -> Unit
+    ) : Either<LoginReceiptDTO, ErrorLoginReceiptDTO> = try {
+        client.post<HttpStatement> {
             url("$BASE_URL/V2/StudentSkip/loginCheckV4.action")
-            parameter("account", EncryptionUtils.encrypt(loginInfo.username))
-            parameter("password", EncryptionUtils.encrypt(loginInfo.password))
+            parameter("account", EncryptionUtils.encrypt(username))
+            parameter("password", EncryptionUtils.encrypt(password))
             parameter("platform", PLATFORM)
             parameter("versionNumber", VERSION_NUMBER)
             parameter("phoneBrand", PHONE_BRAND)
@@ -74,14 +82,24 @@ object SuperCourseApiService {
                     serverIdMatcher.group(1)
                 } else ""
             }))
-            Json.decodeFromString(response.content.readUTF8Line() ?: "{}")
+            //超级课表的api可真是狗屎，逼我自定义一个Either
+            val result = response.content.readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}"
+            if(Pattern.compile("errorStr").matcher(result).find()) {
+                Either.Right(Json.decodeFromString(result))
+            } else {
+                Either.Left(Json.decodeFromString(result))
+            }
+
         }
+    } catch (ex: Exception) {
+        Either.Right(ErrorLoginReceiptDTO(__InternalErrorLoginMsg(ex.toString(),0, 0), 1))
     }
 
-    suspend fun getCourses(cookie: LoginCookieData) : CourseReceiptDTO {
-        return client.post<HttpStatement> {
+    suspend fun getCourses(cookie: LoginCookieData) : Either<CourseReceiptDTO, ErrorCourseReceiptDTO> = getCourses(cookie.jSessionId, cookie.serverId)
+    suspend fun getCourses(jSessionId: String, serverId: String) : Either<CourseReceiptDTO, ErrorCourseReceiptDTO> = try {
+        client.post<HttpStatement> {
             url("$BASE_URL/V2/Course/getCourseTableFromServer.action")
-            header("Cookie", "JSESSIONID=${cookie.jSessionId};SERVERID=${cookie.serverId}")
+            header("Cookie", "JSESSIONID=$jSessionId;SERVERID=$serverId")
             parameter("beginYear", TimeProviderService.currentSemesterBeginYear)
             parameter("term", TimeProviderService.currentSemester)
             parameter("platform", 1)
@@ -89,12 +107,22 @@ object SuperCourseApiService {
             parameter("phoneBrand", PHONE_BRAND)
             parameter("phoneVersion", PHONE_VERSION)
             parameter("phoneModel", PHONE_MODEL)
-        }.execute { response ->
-            Json.decodeFromString(response.content.readUTF8Line() ?: "{}")
+        }.execute {
+            val result = it.content.readUTF8Line() ?: "{\"message\":\"Empty response content.\",\"title\":\"\"}"
+            try {
+                Either.Left(Json.decodeFromString(result))
+            } catch (error: Exception) {
+                Either.Right(Json.decodeFromString(result))
+            }
         }
+    } catch (ex: Exception) {
+        Either.Right(ErrorCourseReceiptDTO("", ex.toString()))
     }
 
     fun closeHttpClient() {
         runBlocking { client.close() }
     }
 }
+
+val SuperCourseApiService.pkey
+    get() = "ia7sgeb8woqbq2r9"

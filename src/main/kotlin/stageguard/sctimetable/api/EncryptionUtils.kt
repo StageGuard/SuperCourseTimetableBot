@@ -6,6 +6,7 @@ import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
+// this encryption utils is only for super course
 object EncryptionUtils {
     fun encrypt(str: String?): String? {
         return try {

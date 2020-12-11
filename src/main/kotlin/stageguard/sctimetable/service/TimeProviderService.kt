@@ -2,13 +2,18 @@ package stageguard.sctimetable.service
 
 import kotlinx.coroutines.*
 import net.mamoe.mirai.utils.info
+import org.jetbrains.exposed.sql.selectAll
 import org.quartz.*
 import org.quartz.Job
 import org.quartz.impl.StdSchedulerFactory
 import stageguard.sctimetable.AbstractPluginManagedService
 import stageguard.sctimetable.PluginMain
+import stageguard.sctimetable.database.Database
+import stageguard.sctimetable.database.model.SchoolTimetable
+import stageguard.sctimetable.database.model.SchoolTimetables
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.*
 
 /**
  * 考虑到bot可能会长期运行(指超过半年或者一个学期)，将时间相关的所有时间放在TimeProviderService中更新
@@ -32,56 +37,74 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
     /**
      * 当前周数，```Map```中的```key```为学校id，```value```为当前周数。
      **/
-    var currentWeek: MutableList<Map<Int, Int>> = mutableListOf()
+    var currentWeek: MutableList<Pair<Int, Int>> = mutableListOf()
 
     val currentSemesterBeginYear: Int
         get() = if(currentSemester == 2) currentYear - 1 else currentYear
 
     private val scheduledQuartzJob: MutableList<Pair<JobDetail, Trigger>> = mutableListOf(
         JobBuilder.newJob(YearUpdater::class.java).apply {
-            withIdentity("YearUpdaterJob")
+            withIdentity(JobKey.jobKey("YearUpdaterJob"))
         }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity("YearUpdaterTrigger")
+            withIdentity(TriggerKey.triggerKey("YearUpdaterTrigger"))
             withSchedule(CronScheduleBuilder.cronSchedule("0 0 0 1 1 ? *"))
             startNow()
         }.build(),
         JobBuilder.newJob(SemesterUpdater::class.java).apply {
-            withIdentity("SemesterUpdaterJob")
+            withIdentity(JobKey.jobKey("SemesterUpdaterJob"))
         }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity("SemesterUpdaterTrigger")
+            withIdentity(TriggerKey.triggerKey("SemesterUpdaterTrigger"))
             withSchedule(CronScheduleBuilder.cronSchedule("0 0 0 15 2,8 ? *"))
             startNow()
         }.build(),
         JobBuilder.newJob(SchoolWeekPeriodUpdater::class.java).apply {
-            withIdentity("SchoolWeekPeriodUpdaterJob")
+            withIdentity(JobKey.jobKey("SchoolWeekPeriodUpdaterJob"))
         }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity("SchoolWeekPeriodUpdaterTrigger")
+            withIdentity(TriggerKey.triggerKey("SchoolWeekPeriodUpdaterTrigger"))
             withSchedule(CronScheduleBuilder.cronSchedule("0 0 0 ? * 2 *"))
             startNow()
         }.build()
     )
     override suspend fun main() {
+        //Scheduled Job
         StdSchedulerFactory.getDefaultScheduler().apply {
-            scheduledQuartzJob.forEach { scheduleJob(it.first, it.second) }
+
+        }.start()
+        //Immediate start once
+        StdSchedulerFactory.getDefaultScheduler().apply {
+            scheduledQuartzJob.forEach { scheduleJob(it.first, TriggerBuilder.newTrigger().startNow().build()) }
         }.start()
         PluginMain.logger.info { "TimeProviderServices(${scheduledQuartzJob.joinToString(", ") { it.first.key.name }}) have started." }
         //unlimited job, kotlin still has no scheduler framework like quartz
         while (true) if(this@TimeProviderService.isActive) delay(100)
     }
 
-    private class YearUpdater : Job {
+    fun immediateUpdate(jobKey: String) {
+        StdSchedulerFactory.getDefaultScheduler().apply {
+            scheduleJob(
+                JobBuilder.newJob(StdSchedulerFactory.getDefaultScheduler().getJobDetail(JobKey.jobKey(jobKey)).jobClass).build(),
+                TriggerBuilder.newTrigger().startNow().build()
+            )
+        }.start()
+    }
+    class YearUpdater : Job {
         override fun execute(context: JobExecutionContext?) {
             currentYear = LocalDate.now(ZoneId.of("Asia/Shanghai")).year
+            PluginMain.logger.info { "Job YearUpdater is executed. (currentYear -> $currentYear)" }
         }
     }
-    private class SemesterUpdater: Job {
+    class SemesterUpdater: Job {
         override fun execute(context: JobExecutionContext?) {
             currentSemester = if(LocalDate.now(ZoneId.of("Asia/Shanghai")).monthValue in 3..7) 2 else 1
+            PluginMain.logger.info { "Job SemesterUpdater is executed. (currentSemester -> $currentSemester)" }
         }
     }
-    private class SchoolWeekPeriodUpdater: Job {
+    class SchoolWeekPeriodUpdater: Job {
         override fun execute(context: JobExecutionContext?) {
-
+            Database.query { SchoolTimetable.all() } ?.apply {
+                PluginMain.logger.info { toString() }
+            }
+            PluginMain.logger.info { "Job SchoolWeekPeriodUpdater is executed." }
         }
     }
 }
