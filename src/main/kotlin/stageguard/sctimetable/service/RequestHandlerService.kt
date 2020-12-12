@@ -1,5 +1,3 @@
-@file:Suppress("unused")
-
 package stageguard.sctimetable.service
 
 import kotlinx.coroutines.*
@@ -16,31 +14,27 @@ import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.api.LoginCookieData
 import stageguard.sctimetable.api.LoginInfoData
 import stageguard.sctimetable.api.SuperCourseApiService
-import stageguard.sctimetable.api.pkey
 import stageguard.sctimetable.service.RequestHandlerService.handlerChannel
 import stageguard.sctimetable.database.Database
-import stageguard.sctimetable.database.model.Courses
-import stageguard.sctimetable.database.model.SchoolTimetables
-import stageguard.sctimetable.database.model.User
-import stageguard.sctimetable.database.model.Users
+import stageguard.sctimetable.database.model.*
 import stageguard.sctimetable.utils.AESUtils
 import stageguard.sctimetable.utils.Either
 
 /**
  * RequestHandlerService 负责处理各种请求，
  *
- * 对于[handlerChannel]，它接收一个[RequestType]并通过它的具体类型来处理不同类型的请求
+ * 对于[handlerChannel]，它接收一个[Request]并通过它的具体类型来处理不同类型的请求
  **/
 object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
 
-    private val handlerChannel = Channel<RequestType>(100) {
+    private val handlerChannel = Channel<Request>(100) {
         PluginMain.logger.warning { "Request is not handled. Request = $it" }
     }
 
     override suspend fun main() { for(request in handlerChannel) { if(this@RequestHandlerService.isActive) {
         PluginMain.logger.info { "Handle Request: $request" }
         when (request) {
-            is RequestType.LoginRequest -> {
+            is Request.LoginRequest -> {
                 Database.suspendQuery {
                     val user = User.find { Users.qq eq request.qq }
                     val cookieData = LoginCookieData()
@@ -63,14 +57,15 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                 }
                             } }
                             PluginMain.logger.info { "User ${request.qq} login successful." }
-                            sendRequest(RequestType.InternalSyncCourseRequestViaCookieData(request.qq, cookieData))
+                            sendRequest(Request.InternalSyncCourseRequestViaCookieDataRequest(request.qq, cookieData))
+                            sendRequest(Request.SyncSchoolTimetableRequest(request.qq))
                         }
                         //用户登录请求失败，密码错误或其他错误(网络问题等)
                         is Either.Right -> PluginMain.logger.error { "Failed to login user ${request.qq}'s SuperCourse error, reason: ${loginReceipt.value.data.errorStr}" }
                     }
                 }
             }
-            is RequestType.SyncCourseRequest -> {
+            is Request.SyncCourseRequest -> {
                 Database.suspendQuery {
                     val user = User.find { Users.qq eq request.qq }
                     if(!user.empty()) {
@@ -79,71 +74,118 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             cookieData.jSessionId = it.jSessionId
                             cookieData.serverId = it.serverId
                         }.also { when(it) {
-                            is Either.Left -> sendRequest(RequestType.InternalSyncCourseRequestViaCookieData(request.qq, cookieData))
+                            is Either.Left -> sendRequest(Request.InternalSyncCourseRequestViaCookieDataRequest(request.qq, cookieData))
                             //用户记录在User的密码有误或者其他问题(网络问题等)
                             is Either.Right -> PluginMain.logger.error { "Failed to sync user ${request.qq}'s courses, reason: ${it.value.data.errorStr}" }
                         } }
-                    } else {
-                        //用户在User表里没有记录，无法同步
-                        PluginMain.logger.error { "Failed to sync user ${request.qq}'s courses, reason: User doesn't exist." }
-                    }
+                    } else PluginMain.logger.error { "Failed to sync user ${request.qq}'s courses, reason: User doesn't exist." }
                 }
             }
-            is RequestType.InternalSyncCourseRequestViaCookieData -> {
+            is Request.InternalSyncCourseRequestViaCookieDataRequest -> {
                 val courseTable = Courses(request.qq)
                 Database.suspendQuery {
                     SchemaUtils.create(courseTable)
                     courseTable.deleteWhere { (courseTable.beginYear eq TimeProviderService.currentSemesterBeginYear) and (courseTable.semester eq TimeProviderService.currentSemester) }
                     val user = User.find { Users.qq eq request.qq }
-                    if(user.empty()) {
-                        PluginMain.logger.warning { "User ${request.qq} requests to sync courses but he/she doesn't exist in user table." }
-                    } else {
+                    if(!user.empty()) {
                         SuperCourseApiService.getCourses(request.cookieData).also { coursesDTO -> when(coursesDTO) {
                             is Either.Left -> {
-                                Database.query {
-                                    //delete exist course
-                                    coursesDTO.value.data.lessonList.forEach { e -> courseTable.insert { crs ->
-                                        crs[courseId] = e.courseId
-                                        crs[courseName] = e.name
-                                        crs[teacherName] = e.teacher
-                                        crs[locale] = e.locale
-                                        crs[whichDayOfWeek] = e.day
-                                        crs[sectionStart] = e.sectionstart
-                                        crs[sectionEnd] = e.sectionend
-                                        crs[weekPeriod] = e.smartPeriod
-                                        crs[beginYear] = TimeProviderService.currentSemesterBeginYear
-                                        crs[semester] = TimeProviderService.currentSemester
-                                    } }
-                                }
+                                Database.query { coursesDTO.value.data.lessonList.forEach { e -> courseTable.insert { crs ->
+                                    crs[courseId] = e.courseId
+                                    crs[courseName] = e.name
+                                    crs[teacherName] = e.teacher
+                                    crs[locale] = e.locale
+                                    crs[whichDayOfWeek] = e.day
+                                    crs[sectionStart] = e.sectionstart
+                                    crs[sectionEnd] = e.sectionend
+                                    crs[weekPeriod] = e.smartPeriod
+                                    crs[beginYear] = TimeProviderService.currentSemesterBeginYear
+                                    crs[semester] = TimeProviderService.currentSemester
+                                } } }
                                 PluginMain.logger.info { "Sync user ${request.qq}'s courses successfully." }
                             }
-                            is Either.Right -> PluginMain.logger.error { "Failed to Sync user ${request.qq}'s." }
+                            is Either.Right -> PluginMain.logger.error { "Failed to sync user ${request.qq}'s courses, reason: ${coursesDTO.value.message}." }
                         } }
-                    }
+                    } else PluginMain.logger.error { "Failed to sync user ${request.qq}'s courses, reason: User doesn't exist." }
                 }
             }
-            is RequestType.DeleteCourseRequest -> {
+            is Request.DeleteCourseRequest -> {
                 Database.suspendQuery {
                     val users = User.find { Users.qq eq request.qq }
-                    if(users.count() == 1L) {
+                    if(!users.empty()) {
                         SchoolTimetables.deleteWhere { SchoolTimetables.schoolId eq users.first().schoolId }
                         TimeProviderService.currentWeek.removeIf { it.first == users.first().schoolId }
+                        SchemaUtils.drop(Courses(request.qq))
+                        Users.deleteWhere { Users.qq eq request.qq }
                     }
-                    SchemaUtils.drop(Courses(request.qq))
-                    Users.deleteWhere { Users.qq eq request.qq }
                 }
             }
-            is RequestType.SyncSchoolTimetableRequest -> {
-
+            is Request.SyncSchoolTimetableRequest -> {
+                Database.suspendQuery {
+                    val user = User.find { Users.qq eq request.qq }
+                    suspend fun syncFromServer() {
+                        SuperCourseApiService.loginViaPassword(user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey)).also { user ->
+                            when(user) {
+                                is Either.Left -> {
+                                    SchoolTimetable.new {
+                                        schoolId = user.value.data.student.schoolId
+                                        schoolName = user.value.data.student.schoolName
+                                        beginYear = TimeProviderService.currentSemesterBeginYear
+                                        semester = TimeProviderService.currentSemester
+                                        scheduledTimeList = user.value.data.student.attachmentBO.myTermList.first { termList ->
+                                            termList.beginYear == TimeProviderService.currentSemesterBeginYear && termList.term == TimeProviderService.currentSemester
+                                        }.courseTimeList.courseTimeBO.joinToString("|") { time ->
+                                            "${time.beginTimeStr.substring(0..1)}:${time.beginTimeStr.substring(2..3)}-${time.endTimeStr.substring(0..1)}:${time.endTimeStr.substring(2..3)}"
+                                        }
+                                        timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
+                                        weekPeriodWhenAdd = 1
+                                    }
+                                    TimeProviderService.immediateUpdateSchoolWeekPeriod()
+                                }
+                                //用户记录在User的密码有误或者其他问题(网络问题等)
+                                is Either.Right -> PluginMain.logger.error { "Failed to sync user ${request.qq}'s school timetable, reason: ${user.value.data.errorStr}" }
+                            }
+                        }
+                    }
+                    if(!user.empty()) {
+                        val schoolTimeTable = SchoolTimetable.find { SchoolTimetables.schoolId eq user.first().schoolId }
+                        if(schoolTimeTable.empty()) {
+                            //首次从服务器同步时间表
+                            syncFromServer()
+                            PluginMain.logger.info { "Sync timetable from server for ${request.qq}'s school successfully." }
+                        } else if(request.forceUpdate) { //强制更新，要告知用户可能会产生不好影响
+                            schoolTimeTable.first().delete()
+                            if(request.newTimetable == null) {
+                                //从服务器更新时间表
+                                syncFromServer()
+                                PluginMain.logger.info { "Sync timetable from server for ${request.qq}'s school successfully, forceUpdate=${request.forceUpdate}." }
+                            } else PluginMain.logger.info { "Sync timetable from user customed list for ${request.qq}'s school successfully, forceUpdate=${request.forceUpdate}." }
+                        } else PluginMain.logger.warning { "Deny to sync school timetable for ${request.qq}'s school, forceUpdate=${request.forceUpdate}." }
+                    } else PluginMain.logger.error { "Failed to sync school timetable ${request.qq}'s school, reason: User doesn't exist." }
+                }
             }
-            is RequestType.SyncSchoolWeekPeriodRequest -> {
-
+            is Request.SyncSchoolWeekPeriodRequest -> {
+                Database.suspendQuery {
+                    val user = User.find { Users.qq eq request.qq }
+                    if(!user.empty()) {
+                        val schoolTimetable = SchoolTimetable.find { SchoolTimetables.schoolId eq user.first().schoolId }
+                        if(!schoolTimetable.empty()) {
+                            if(request.forceUpdate) {
+                                schoolTimetable.first().apply {
+                                    timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
+                                    weekPeriodWhenAdd = request.currentWeek
+                                }
+                                TimeProviderService.immediateUpdateSchoolWeekPeriod()
+                                PluginMain.logger.info { "Sync school week period for user ${request.qq}'s school successfully, currentWeek=${request.currentWeek}." }
+                            } else PluginMain.logger.warning { "Deny to sync school week period for user ${request.qq}'s school, reason: forceUpdate=${request.forceUpdate}" }
+                        } else PluginMain.logger.error { "Failed to sync school week period for user ${request.qq}'s school, reason: School doesn't exist." }
+                    } else PluginMain.logger.error { "Failed to sync school week period for user ${request.qq}'s school, reason: User doesn't exist." }
+                }
             }
         }
     }
     } }
-
-    suspend fun sendRequest(request: RequestType) {
+    suspend fun sendRequest(request: Request) {
         handlerChannel.send(request)
     }
 }
@@ -155,14 +197,14 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
  *
  * 不过这也意味着[handlerChannel]将承载更多的工作，所以它的容量应该设置得大一点
  **/
-sealed class RequestType {
+sealed class Request {
     /**
      * LoginAndStoreRequest：新用户请求登录并存储课程信息到数据库
      *
-     * 之后将发送[InternalSyncCourseRequestViaCookieData]请求
+     * 之后将发送[InternalSyncCourseRequestViaCookieDataRequest]请求
      * @param loginInfoData 用户登录信息，包括用户名和密码
      **/
-    class LoginRequest(val qq: Long, val loginInfoData: LoginInfoData) : RequestType() {
+    class LoginRequest(val qq: Long, val loginInfoData: LoginInfoData) : Request() {
         override fun toString() = "LoginRequest(qq=$qq,account=${loginInfoData.username},password=${"*".repeat(loginInfoData.password.length)})"
     }
     /**
@@ -170,10 +212,10 @@ sealed class RequestType {
      *
      * 这是通过重新登录SuperCourse来同步
      *
-     * 获取到cookie后将委托给[InternalSyncCourseRequestViaCookieData]更新
+     * 获取到cookie后将委托给[InternalSyncCourseRequestViaCookieDataRequest]更新
      * @param qq 要更新课表信息的用户的QQ号
      **/
-    class SyncCourseRequest(val qq: Long) : RequestType() {
+    class SyncCourseRequest(val qq: Long) : Request() {
         override fun toString() = "SyncCourseRequest(qq=$qq)"
     }
     /**
@@ -182,23 +224,25 @@ sealed class RequestType {
      * 这是通过cookie更新
      * @param qq 要更新课表信息的用户的QQ号
      **/
-    class InternalSyncCourseRequestViaCookieData(val qq: Long, val cookieData: LoginCookieData) : RequestType() {
+    class InternalSyncCourseRequestViaCookieDataRequest(val qq: Long, val cookieData: LoginCookieData) : Request() {
         override fun toString() = "InternalSyncCourseRequestViaCookieData(qq=$qq,cookie=$cookieData)"
     }
     /**
      * DeleteCourseRequest：用户请求删除数据库中该用户的所有信息
      * @param qq 要删除信息的用户的QQ号
      */
-    class DeleteCourseRequest(val qq: Long) : RequestType() {
+    class DeleteCourseRequest(val qq: Long) : Request() {
         override fun toString() = "DeleteCourseRequest(qq=$qq)"
     }
     /**
      * SyncSchoolTimetableRequest：同步这个学校当前学期的作息表.
+     *
      * @param qq 要修改这个用户所在的学校作息时间
      * @param newTimetable 时间表列表
+     * @param forceUpdate 当[newTimetable]为null时决定是否强制从服务器同步
      */
-    class SyncSchoolTimetableRequest(val qq: Long, val newTimetable: List<Pair<String, String>>) : RequestType() {
-        override fun toString() = "SyncSchoolTimetableRequest(qq=$qq, newTimetable=${newTimetable.joinToString(",") { "[${it.first}->${it.second}]" }})"
+    class SyncSchoolTimetableRequest(val qq: Long, val newTimetable: List<Pair<String, String>>? = null, val forceUpdate: Boolean = false) : Request() {
+        override fun toString() = "SyncSchoolTimetableRequest(qq=$qq,newTimetable=${newTimetable?.joinToString(",") { "[${it.first}->${it.second}]" } ?: "<syncFromServer>"},forceUpdate=$forceUpdate)"
     }
     /**
      * SyncSchoolWeekPeriod：同步这个学校当前学期的周数，
@@ -207,8 +251,7 @@ sealed class RequestType {
      * @param qq 要修改这个用户所在的学校作息时间
      * @param currentWeek 当前周数
      */
-    class SyncSchoolWeekPeriodRequest(val qq: Long, val currentWeek: Int) : RequestType() {
+    class SyncSchoolWeekPeriodRequest(val qq: Long, val currentWeek: Int, val forceUpdate: Boolean = false) : Request() {
         override fun toString() = "SyncSchoolWeekPeriodRequest(qq=$qq, currentWeek=$currentWeek)"
     }
-
 }

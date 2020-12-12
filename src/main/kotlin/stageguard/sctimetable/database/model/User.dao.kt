@@ -5,7 +5,6 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Column
-import stageguard.sctimetable.api.SuperCourseApiService.loginViaPassword
 
 /**
  * Users存储所有用户的信息

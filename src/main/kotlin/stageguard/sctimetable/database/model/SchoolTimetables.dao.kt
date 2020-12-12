@@ -44,7 +44,7 @@ object SchoolTimetables : IntIdTable() {
      *
      * 计算工作由[TimeProviderService]执行
      **/
-    val unixTimeWhenAdd: Column<Long> = long("unixTimeWhenAdd")
+    val timeStampWhenAdd: Column<String> = varchar("timeStampWhenAdd", 10)
     val weekPeriodWhenAdd: Column<Int> = integer("weekPeriodWhenAdd")
 }
 
@@ -53,11 +53,11 @@ object SchoolTimetables : IntIdTable() {
  **/
 class SchoolTimetable(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<SchoolTimetable>(SchoolTimetables)
-    var schoolId by SchoolTimetables.id
+    var schoolId by SchoolTimetables.schoolId
     var schoolName by SchoolTimetables.schoolName
     var beginYear by SchoolTimetables.beginYear
     var semester by SchoolTimetables.semester
     var scheduledTimeList by SchoolTimetables.scheduledTimeList
-    var unixTimeWhenAdd by SchoolTimetables.unixTimeWhenAdd
+    var timeStampWhenAdd by SchoolTimetables.timeStampWhenAdd
     var weekPeriodWhenAdd by SchoolTimetables.weekPeriodWhenAdd
 }

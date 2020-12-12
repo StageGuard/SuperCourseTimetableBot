@@ -1,9 +1,7 @@
 package stageguard.sctimetable
 
 import net.mamoe.mirai.console.data.AutoSavePluginConfig
-import net.mamoe.mirai.console.data.ValueDescription
 import net.mamoe.mirai.console.data.value
-import java.util.Calendar
 import kotlinx.serialization.Serializable
 import net.mamoe.yamlkt.Comment
 

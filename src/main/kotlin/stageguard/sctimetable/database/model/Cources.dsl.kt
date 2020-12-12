@@ -9,7 +9,7 @@ import org.jetbrains.exposed.sql.Table
  * 会在目标数据库下建立一个新的[Table]来存储这个用户的课程表。
  *
  * 它是一个class而不是object，因为会有多个用户。
- * @param tableName table名称，一般表示为```用户的qq号```
+ * @param qq table名称，一般表示为```用户的qq号```
  **/
 class Courses(qq: Long) : Table("courses_$qq") {
     /**

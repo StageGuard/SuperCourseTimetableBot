@@ -43,14 +43,17 @@ object SuperCourseApiService {
     private val jSessionIdRegExp = Pattern.compile("JSESSIONID=([0-9A-F]+-[a-z1-9]+);")
     private val serverIdRegexp = Pattern.compile("SERVERID=([0-9a-f|]+);")
 
+    val pkey
+        get() = "ia7sgeb8woqbq2r9"
+
     suspend fun loginViaPassword(
         loginInfo: LoginInfoData,
-        cookieBlock: (LoginCookieData) -> Unit
+        cookieBlock: ((LoginCookieData) -> Unit)?
     ) : Either<LoginReceiptDTO, ErrorLoginReceiptDTO> = loginViaPassword(loginInfo.username, loginInfo.password, cookieBlock)
     suspend fun loginViaPassword(
         username: String,
         password: String,
-        cookieBlock: (LoginCookieData) -> Unit
+        cookieBlock: ((LoginCookieData) -> Unit)? = null
     ) : Either<LoginReceiptDTO, ErrorLoginReceiptDTO> = try {
         client.post<HttpStatement> {
             url("$BASE_URL/V2/StudentSkip/loginCheckV4.action")
@@ -71,7 +74,7 @@ object SuperCourseApiService {
                     return@forEach
                 }
             }
-            cookieBlock(LoginCookieData(cookieList[0].let {
+            cookieBlock ?.invoke(LoginCookieData(cookieList[0].let {
                 val jSessionMatcher = jSessionIdRegExp.matcher(it)
                 if(jSessionMatcher.find()) {
                     jSessionMatcher.group(1)
@@ -102,7 +105,7 @@ object SuperCourseApiService {
             header("Cookie", "JSESSIONID=$jSessionId;SERVERID=$serverId")
             parameter("beginYear", TimeProviderService.currentSemesterBeginYear)
             parameter("term", TimeProviderService.currentSemester)
-            parameter("platform", 1)
+            parameter("platform", PLATFORM)
             parameter("versionNumber", VERSION_NUMBER)
             parameter("phoneBrand", PHONE_BRAND)
             parameter("phoneVersion", PHONE_VERSION)
@@ -123,6 +126,3 @@ object SuperCourseApiService {
         runBlocking { client.close() }
     }
 }
-
-val SuperCourseApiService.pkey
-    get() = "ia7sgeb8woqbq2r9"

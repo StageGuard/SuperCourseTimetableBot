@@ -2,7 +2,6 @@ package stageguard.sctimetable.database
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import net.mamoe.mirai.utils.error
 import net.mamoe.mirai.utils.info
@@ -14,14 +13,10 @@ import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransactionAsync
-import org.slf4j.LoggerFactory
 import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.PluginMain
-import stageguard.sctimetable.database.model.Courses
 import stageguard.sctimetable.database.model.SchoolTimetables
 import stageguard.sctimetable.database.model.Users
-import java.util.logging.LogManager
 
 object Database {
 
