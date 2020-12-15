@@ -10,6 +10,8 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import stageguard.sctimetable.AbstractPluginManagedService
+import stageguard.sctimetable.PluginConfig
+import stageguard.sctimetable.PluginData
 import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.api.LoginCookieData
 import stageguard.sctimetable.api.LoginInfoData
@@ -46,16 +48,17 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                     }
                     when(loginReceipt) {
                         is Either.Left -> {
-                            if(user.empty()) { Database.query {
-                                User.new {
+                            if(user.empty()) {
+                                Database.query { User.new {
                                     qq = request.qq
                                     studentId = loginReceipt.value.data.student.studentNum.toLong()
                                     name = loginReceipt.value.data.student.nickName
                                     schoolId = loginReceipt.value.data.student.schoolId
                                     account = request.loginInfoData.username
                                     password = AESUtils.encrypt(request.loginInfoData.password, SuperCourseApiService.pkey)
-                                }
-                            } }
+                                } }
+                                PluginData.advancedTipOffset[request.qq] = PluginConfig.advancedTipTime
+                            }
                             PluginMain.logger.info { "User ${request.qq} login successful." }
                             sendRequest(Request.InternalSyncCourseRequestViaCookieDataRequest(request.qq, cookieData))
                             sendRequest(Request.SyncSchoolTimetableRequest(request.qq))
@@ -111,10 +114,15 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
             }
             is Request.DeleteCourseRequest -> {
                 Database.suspendQuery {
-                    val users = User.find { Users.qq eq request.qq }
-                    if(!users.empty()) {
-                        SchoolTimetables.deleteWhere { SchoolTimetables.schoolId eq users.first().schoolId }
-                        TimeProviderService.currentWeek.removeIf { it.first == users.first().schoolId }
+                    val user = User.find { Users.qq eq request.qq }
+                    if(!user.empty()) {
+                        User.find { Users.schoolId eq user.first().schoolId }.also { remainUsers -> if(remainUsers.count() == 1L) {
+                            SchoolTimetables.deleteWhere { SchoolTimetables.schoolId eq user.first().schoolId }
+                            TimeProviderService.currentWeekPeriod.remove(user.first().schoolId)
+                            TODO("还有一个移除ScheduleListenerJob里cachedSchoolTimetables的学校")
+                        } }
+                        PluginData.advancedTipOffset.remove(request.qq)
+                        TODO("还有个移除ScheduleListenerJob里的user，要先停止Job")
                         SchemaUtils.drop(Courses(request.qq))
                         Users.deleteWhere { Users.qq eq request.qq }
                     }
@@ -183,8 +191,7 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                 }
             }
         }
-    }
-    } }
+    } } }
     suspend fun sendRequest(request: Request) {
         handlerChannel.send(request)
     }

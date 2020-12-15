@@ -20,14 +20,14 @@ data class ErrorLoginReceiptDTO(
 @Serializable
 data class __InternalErrorLoginMsg(
     val errorStr: String,
-    val isRegister: Int,
-    val statusInt: Int
+    val isRegister: Int = 1,
+    val statusInt: Int = 1
 )
 
 @Serializable
 data class __InternalData(
-    val isRegister: Int,
-    val statusInt: Int,
+    val isRegister: Int = 1,
+    val statusInt: Int = 1,
     val student: __InternalStudent
 )
 
@@ -41,8 +41,10 @@ data class __InternalStudent(
     val avaterReview: Int,
     val beginYear: Int,
     val bigAvatarUrl: String,
+    val bornCity: String = "",
     val bornCityId: Int,
-    val bornDate: Int,
+    val bornDate: Long,
+    val bornProvince: String = "",
     val bornProvinceId: Int,
     val certificationType: Int,
     val fullAvatarUrl: String,
@@ -83,7 +85,9 @@ data class __InternalStudent(
     val versionId: Int,
     val vipLevel: Int,
     val weiboAccount: Int,
-    val weiboExpiresIn: Int
+    val weiboExpiresIn: Int,
+    val classes: Int = 1,
+    val hometown: String = ""
 )
 
 @Serializable

@@ -46,10 +46,21 @@ object SuperCourseApiService {
     val pkey
         get() = "ia7sgeb8woqbq2r9"
 
+    /**
+     * 通过密码登录超级课表，并返回一个[Either].
+     *
+     * 成功则返回[LoginReceiptDTO]，失败则返回[ErrorLoginReceiptDTO]
+     */
     suspend fun loginViaPassword(
         loginInfo: LoginInfoData,
         cookieBlock: ((LoginCookieData) -> Unit)?
     ) : Either<LoginReceiptDTO, ErrorLoginReceiptDTO> = loginViaPassword(loginInfo.username, loginInfo.password, cookieBlock)
+
+    /**
+     * 通过密码登录超级课表，并返回一个[Either].
+     *
+     * 成功则返回[LoginReceiptDTO]，失败则返回[ErrorLoginReceiptDTO]
+     */
     suspend fun loginViaPassword(
         username: String,
         password: String,
@@ -86,7 +97,7 @@ object SuperCourseApiService {
                 } else ""
             }))
             //超级课表的api可真是狗屎，逼我自定义一个Either
-            val result = response.content.readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}"
+            val result = (response.content.readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}").also { println(it) }
             if(Pattern.compile("errorStr").matcher(result).find()) {
                 Either.Right(Json.decodeFromString(result))
             } else {
@@ -98,7 +109,18 @@ object SuperCourseApiService {
         Either.Right(ErrorLoginReceiptDTO(__InternalErrorLoginMsg(ex.toString(),0, 0), 1))
     }
 
+    /**
+     * 获取课程信息，并返回一个[Either].
+     *
+     * 成功则返回[CourseReceiptDTO]，失败则返回[ErrorCourseReceiptDTO]
+     */
     suspend fun getCourses(cookie: LoginCookieData) : Either<CourseReceiptDTO, ErrorCourseReceiptDTO> = getCourses(cookie.jSessionId, cookie.serverId)
+
+    /**
+     * 获取课程信息，并返回一个[Either].
+     *
+     * 成功则返回[CourseReceiptDTO]，失败则返回[ErrorCourseReceiptDTO]
+     */
     suspend fun getCourses(jSessionId: String, serverId: String) : Either<CourseReceiptDTO, ErrorCourseReceiptDTO> = try {
         client.post<HttpStatement> {
             url("$BASE_URL/V2/Course/getCourseTableFromServer.action")

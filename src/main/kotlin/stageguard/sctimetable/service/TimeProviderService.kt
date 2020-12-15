@@ -4,7 +4,6 @@ import kotlinx.coroutines.*
 import net.mamoe.mirai.utils.info
 import org.quartz.*
 import org.quartz.Job
-import org.quartz.impl.StdSchedulerFactory
 import stageguard.sctimetable.AbstractPluginManagedService
 import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.database.Database
@@ -17,13 +16,15 @@ import kotlin.math.ceil
  * 考虑到bot可能会长期运行(指超过半年或者一个学期)，将时间相关的所有时间放在TimeProviderService中更新
  *
  * 包含以下定时更新属性：
- * - [currentYear] 当前年份，由 [YearUpdater] 在每年1月1日00:00更新
- * - [currentSemester] 当前学期，由 [SemesterUpdater] 在每年2月1日00:00和8月1日00:00长假时更新
- * - [currentWeek] 由 [SchoolWeekPeriodUpdater] 在每周一的00:00更新，不同学校同一时间的周数不同
+ * - [currentYear] 当前年份，由 [YearUpdater] 在每年 1 月1  日0 0:00:10 更新
+ * - [currentSemester] 当前学期，由 [SemesterUpdater] 在每年 2 月 1 日 00:00 和 8 月 1 日 00:00:10 长假时更新
+ * - [currentWeekPeriod] 由 [SchoolWeekPeriodUpdater] 在每周一的 00:00:10 更新，不同学校同一时间的周数不同
  *
  * 以上时间均为 ```UTF+8``` 时间 ```ZoneId.of("Asia/Shanghai")```
  **/
 object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
+
+    private const val JOB_GROUP = "TimeProviderServiceGroup"
     /**
      * 当前年份
      **/
@@ -35,12 +36,7 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
     /**
      * 当前周数，```Map```中的```key```为学校id，```value```为当前周数。
      **/
-    var currentWeek: MutableList<Pair<Int, Int>> = mutableListOf()
-
-    fun <A, B> MutableList<Pair<A, B>>.containsPairFirstValue(value: A) : Boolean {
-        this.forEach { if(it.first == value) return true }
-        return false
-    }
+    var currentWeekPeriod: MutableMap<Int, Int> = mutableMapOf()
 
     val currentSemesterBeginYear: Int
         get() = if(currentSemester == 2) currentYear - 1 else currentYear
@@ -51,24 +47,24 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
     private val scheduledQuartzJob: MutableList<Pair<JobDetail, Trigger>> = mutableListOf(
         //Scheduled
         JobBuilder.newJob(YearUpdater::class.java).apply {
-            withIdentity(JobKey.jobKey("YearUpdaterJob"))
+            withIdentity(JobKey.jobKey("YearUpdaterJob", JOB_GROUP))
         }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity(TriggerKey.triggerKey("YearUpdaterTrigger"))
-            withSchedule(CronScheduleBuilder.cronSchedule("0 0 0 1 1 ? *"))
+            withIdentity(TriggerKey.triggerKey("YearUpdaterTrigger", JOB_GROUP))
+            withSchedule(CronScheduleBuilder.cronSchedule("10 0 0 1 1 ? *"))
             startNow()
         }.build(),
         JobBuilder.newJob(SemesterUpdater::class.java).apply {
-            withIdentity(JobKey.jobKey("SemesterUpdaterJob"))
+            withIdentity(JobKey.jobKey("SemesterUpdaterJob", JOB_GROUP))
         }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity(TriggerKey.triggerKey("SemesterUpdaterTrigger"))
-            withSchedule(CronScheduleBuilder.cronSchedule("0 0 0 15 2,8 ? *"))
+            withIdentity(TriggerKey.triggerKey("SemesterUpdaterTrigger", JOB_GROUP))
+            withSchedule(CronScheduleBuilder.cronSchedule("10 0 0 15 2,8 ? *"))
             startNow()
         }.build(),
         JobBuilder.newJob(SchoolWeekPeriodUpdater::class.java).apply {
-            withIdentity(JobKey.jobKey("SchoolWeekPeriodUpdaterJob"))
+            withIdentity(JobKey.jobKey("SchoolWeekPeriodUpdaterJob", JOB_GROUP))
         }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity(TriggerKey.triggerKey("SchoolWeekPeriodUpdaterTrigger"))
-            withSchedule(CronScheduleBuilder.cronSchedule("0 0 0 ? * 2 *"))
+            withIdentity(TriggerKey.triggerKey("SchoolWeekPeriodUpdaterTrigger", JOB_GROUP))
+            withSchedule(CronScheduleBuilder.cronSchedule("10 0 0 ? * 2 *"))
             startNow()
         }.build(),
         //immediate start once
@@ -79,18 +75,20 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
 
 
     override suspend fun main() {
-        StdSchedulerFactory.getDefaultScheduler().apply {
+        PluginMain.quartzScheduler.apply {
             scheduledQuartzJob.forEach { scheduleJob(it.first, it.second) }
         }.start()
         PluginMain.logger.info { "TimeProviderServices(${scheduledQuartzJob.joinToString(", ") { it.first.key.name }}) have started." }
         //unlimited job, kotlin still has no scheduler framework like quartz
-        awaitCancellation()
+        //awaitCancellation()
     }
 
     fun immediateUpdateSchoolWeekPeriod() {
-        StdSchedulerFactory.getDefaultScheduler().apply {
+        PluginMain.quartzScheduler.apply {
             scheduleJob(
-                JobBuilder.newJob(SchoolWeekPeriodUpdater::class.java).build(),
+                JobBuilder.newJob(SchoolWeekPeriodUpdater::class.java).apply {
+                    withIdentity(JobKey.jobKey("ImmediateSchoolWeekPeriodUpdaterJob", JOB_GROUP))
+                }.build(),
                 TriggerBuilder.newTrigger().startNow().build()
             )
         }.start()
@@ -116,8 +114,8 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
                     val addTime = LocalDate.parse(ttb.timeStampWhenAdd)
                     val dayAddedBasedWeek = addTime.dayOfWeek.value + (currentTimeStamp.toEpochDay() - addTime.toEpochDay())
                     val result = if(dayAddedBasedWeek <= 7) { 0 } else { ceil((dayAddedBasedWeek / 7).toFloat()).toInt() }
-                    if(currentWeek.containsPairFirstValue(ttb.schoolId)) currentWeek.removeIf { it.first == ttb.schoolId }
-                    currentWeek.add(Pair(ttb.schoolId, ttb.weekPeriodWhenAdd + result))
+                    if(currentWeekPeriod.containsKey(ttb.schoolId)) currentWeekPeriod.remove(ttb.schoolId)
+                    currentWeekPeriod[ttb.schoolId] = ttb.weekPeriodWhenAdd + result
                 }
             }
             PluginMain.logger.info { "Job SchoolWeekPeriodUpdater is executed." }
