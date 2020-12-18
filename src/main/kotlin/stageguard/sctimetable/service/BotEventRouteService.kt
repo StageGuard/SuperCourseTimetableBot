@@ -7,9 +7,10 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.event.*
 import net.mamoe.mirai.event.events.NewFriendRequestEvent
-import net.mamoe.mirai.message.FriendMessageEvent
+import net.mamoe.mirai.event.events.FriendMessageEvent
 import net.mamoe.mirai.message.data.Message
 import net.mamoe.mirai.message.data.PlainText
+import net.mamoe.mirai.message.data.firstIsInstanceOrNull
 import net.mamoe.mirai.message.nextMessage
 import net.mamoe.mirai.utils.info
 import stageguard.sctimetable.AbstractPluginManagedService
@@ -35,7 +36,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                 this.accept()
                 this@BotEventRouteService.launch(coroutineContext) {
                     delay(5000L)
-                    PluginMain.targetBotInstance.friends[this@subscribe.fromId].sendMessage("""
+                    PluginMain.targetBotInstance.friends[this@subscribe.fromId]?.sendMessage("""
                         欢迎使用 超级课表课程提醒机器人。
                         发送 "怎么用"/"帮助" 获取使用方法。
                     """.trimIndent())
@@ -44,7 +45,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
             ListeningStatus.LISTENING
         }
         subscribeAlways<FriendMessageEvent> { if(this.bot.id == PluginConfig.qq) {
-            val plainText = message[PlainText]?.content ?: ""
+            val plainText = message.firstIsInstanceOrNull<PlainText>()?.content ?: ""
             when {
                 plainText.matches(Regex("^登录超级(课程表|课表)")) -> {
                     verbose("capture 登录超级(课程表|课表)")
@@ -273,14 +274,14 @@ object BotEventRouteService : AbstractPluginManagedService() {
             checkBlock: ((String) -> Boolean)? = null
         ) : String {
             if(checkBlock == null) {
-                (eventContext.nextMessage(timeoutLimit)[PlainText]?.content ?: "").also {
+                (eventContext.nextMessage(timeoutLimit).firstIsInstanceOrNull<PlainText>()?.content ?: "").also {
                     if(isReceive) capturedList.add(it)
                     return it
                 }
             } else {
                 if(tryLimit == -1) {
                     while (true) {
-                        val plainText = (eventContext.nextMessage(timeoutLimit)[PlainText]?.content ?: "")
+                        val plainText = (eventContext.nextMessage(timeoutLimit).firstIsInstanceOrNull<PlainText>()?.content ?: "")
                         kotlin.runCatching {
                             if(checkBlock(plainText)) {
                                 if(isReceive) capturedList.add(plainText)
@@ -291,7 +292,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     }
                 } else {
                     repeat(tryLimit) {
-                        val plainText = (eventContext.nextMessage(timeoutLimit)[PlainText]?.content ?: "")
+                        val plainText = (eventContext.nextMessage(timeoutLimit).firstIsInstanceOrNull<PlainText>()?.content ?: "")
                         kotlin.runCatching {
                             if(checkBlock(plainText)) {
                                 if(isReceive) capturedList.add(plainText)
@@ -343,6 +344,6 @@ object BotEventRouteService : AbstractPluginManagedService() {
     }
 
     fun sendMessageNonBlock(friendId: Long, msg: String) = launch(coroutineContext) {
-        if(PluginMain.targetBotInstance.isOnline) PluginMain.targetBotInstance.friends[friendId].sendMessage(msg)
+        if(PluginMain.targetBotInstance.isOnline) PluginMain.targetBotInstance.friends[friendId]?.sendMessage(msg)
     }
 }

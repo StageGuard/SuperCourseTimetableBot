@@ -2,9 +2,6 @@ package stageguard.sctimetable.service
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import net.mamoe.mirai.utils.error
-import net.mamoe.mirai.utils.info
-import net.mamoe.mirai.utils.warning
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -12,7 +9,6 @@ import org.jetbrains.exposed.sql.insert
 import stageguard.sctimetable.AbstractPluginManagedService
 import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.PluginData
-import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.api.LoginCookieData
 import stageguard.sctimetable.api.LoginInfoData
 import stageguard.sctimetable.api.SuperCourseApiService
@@ -72,7 +68,7 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             }
                         }
                     } else {
-                        PluginMain.logger.info{ "User ${request.qq} has already login and cannot login again." }
+                        info("User ${request.qq} has already login and cannot login again.")
                         BotEventRouteService.sendMessageNonBlock(request.qq, "你已经登陆过了，不可以重复登录。\n如果你想修改密码，请发送\"帮助\"查看如何修改密码。")
                     }
                 }
