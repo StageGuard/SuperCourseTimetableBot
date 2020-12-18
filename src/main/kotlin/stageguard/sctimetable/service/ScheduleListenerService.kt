@@ -1,8 +1,9 @@
 package stageguard.sctimetable.service
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import net.mamoe.mirai.utils.debug
+import net.mamoe.mirai.utils.error
 import net.mamoe.mirai.utils.info
 import net.mamoe.mirai.utils.warning
 import org.jetbrains.exposed.sql.and
@@ -13,18 +14,18 @@ import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.PluginData
 import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.database.Database
-import stageguard.sctimetable.database.model.Courses
-import stageguard.sctimetable.database.model.SchoolTimetable
-import stageguard.sctimetable.database.model.SchoolTimetables
-import stageguard.sctimetable.database.model.User
+import stageguard.sctimetable.database.model.*
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlin.math.floor
 
 /**
  * 为每个用户设定定时任务
  */
 object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
+
+    override val TAG: String = "ScheduleListenerService"
 
     private const val JOB_GROUP = "ScheduleListenerServiceGroup"
 
@@ -64,20 +65,15 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
                     }.let { it[0] to it[1] }
                 }.also { cachedSchoolTimetables[schoolId] = it }
             } else listOf()
-        } ?: listOf())
-    }
-
-    fun updateSchoolTimetable(schoolId: Int) = cachedSchoolTimetables.run {
-        if(this.containsKey(schoolId)) {
-            this.remove(schoolId)
-            this[schoolId] = getSchoolTimetable(schoolId)
+        } ?: listOf()).also {
+            verbose("getSchoolTimetable(schoolId=$schoolId)")
         }
     }
 
-    fun stopAndRemoveUserNotificationJob(qq: Long) = userNotificationJobs.run {
-        if(this.containsKey(qq)) {
-            PluginMain.quartzScheduler.interrupt(this[qq]?.key)
-            userNotificationJobs.remove(qq)
+    fun removeSchoolTimetable(schoolId: Int) {
+        if(cachedSchoolTimetables.containsKey(schoolId)) {
+            cachedSchoolTimetables.remove(schoolId)
+            verbose("removeSchoolTimetable(schoolId=$schoolId)")
         }
     }
 
@@ -96,18 +92,25 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
                                     it[courses.sectionStart],
                                     it[courses.sectionEnd],
                                     it[courses.courseName],
-                                    it[courses.locale],
-                                    it[courses.teacherName]
+                                    it[courses.teacherName],
+                                    it[courses.locale]
                                 ))
                             }
                         }
                     }
-                    coursesList.toList()
+                    coursesList.toList().sortedBy { it.startSection }
                 } ?: listOf()).also { this[qq] = it }
             } else {
-                PluginMain.logger.warning { "Cannot get user $qq's today courses because school doesn't exist in TimeProviderService" }
+                warning("Cannot get user $qq's today courses because school doesn't exist in TimeProviderService")
                 listOf<SingleCourse>().also { this[qq] = it }
             }
+        }.also { verbose("getUserTodayCourses(qq=$qq,belongingSchool=$belongingSchool)") }
+    }
+
+    fun removeUserTodayCourses(qq: Long) {
+        if(userCourses.containsKey(qq)) {
+            userCourses.remove(qq)
+            verbose("removeUserTodayCourses(qq=$qq)")
         }
     }
 
@@ -125,17 +128,14 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
             //空则表示今天没课或者获取错误
             if(todayCourses.isNotEmpty()) {
                 val tipOffset = PluginData.advancedTipOffset[qq] ?: PluginConfig.advancedTipTime
+                val nowTimeAsMinute = nowTime.hour * 60 + nowTime.minute
                 val explicitSection = whichSection ?: todayCourses.let { courses ->
-                    val nowTimeAsMinute = nowTime.hour * 60 + nowTime.minute
                     when {
-                        //现在时间在今天第一节课开始之前
-                        nowTimeAsMinute <= schoolTimetable[courses.first().startSection - 1].first - tipOffset -> courses.first().startSection
-                        //现在时间在今天最后一节课开时候
                         nowTimeAsMinute >= schoolTimetable[courses[courses.lastIndex].startSection - 1].first -> return@run
-                        else -> courses.asReversed().first { nowTimeAsMinute <= schoolTimetable[it.startSection - 1].first - tipOffset }.startSection
+                        else -> courses.first { nowTimeAsMinute <= schoolTimetable[it.startSection - 1].first }.startSection
                     }
                 }
-                //判断一下第section节课是不是超过了学校时间表里最后一个课程的时间
+                //判断一下第section节课是不是超过了学校时间表里最后一个课程的时间ss
                 if(explicitSection <= schoolTimetable.count()) {
                     val theComingCourseList = todayCourses.filter { it.startSection == explicitSection }
                     //判断一下今天第section节课有没有课
@@ -146,22 +146,78 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
                             usingJobData("qq", qq)
                             usingJobData("belongingSchool", belongingSchool)
                             //如果为 -1 则表示今天课程已结束，今天没有下一节课了
-                            usingJobData("theNextClassSectionStart", if(todayCourses.indexOf(theComingCourse) == todayCourses.size - 1) -1 else todayCourses[todayCourses.indexOf(theComingCourse) + 1].startSection)
+                            usingJobData("theNextClassSectionStart", if(todayCourses.indexOf(theComingCourse) == todayCourses.lastIndex) -1 else todayCourses[todayCourses.indexOf(theComingCourse) + 1].startSection)
                             usingJobData("theComingCourseName", theComingCourse.courseName)
                             usingJobData("theComingCourseTeacherName", theComingCourse.teacherName)
                             usingJobData("theComingCourseLocale", theComingCourse.locale)
                             usingJobData("theComingCourseStartTime", schoolTimetable[theComingCourse.startSection - 1].first)
                             usingJobData("theComingCourseEndTime", schoolTimetable[theComingCourse.endSection - 1].second)
                         }.build()
-                        val cronString = "0 ${
-                            (schoolTimetable[theComingCourse.startSection - 1].first - tipOffset).let { "${it % 60} ${(it - (it % 60)) / 60}" }
-                        } ${ dateOfToday.let { "${it.dayOfMonth} ${it.month.value} ? ${it.year}" } }"
-                        PluginMain.logger.info { "Cron for user $qq is $cronString" }
-                        PluginMain.quartzScheduler.scheduleJob(this[qq], TriggerBuilder.newTrigger().withSchedule(CronScheduleBuilder.cronSchedule(cronString)).build())
+                        PluginMain.quartzScheduler.scheduleJob(this[qq], TriggerBuilder.newTrigger().withSchedule(if(schoolTimetable[theComingCourse.startSection - 1].first - tipOffset < nowTimeAsMinute) {
+                            verbose("schedule notification job for $qq: immediate.")
+                            SimpleScheduleBuilder.simpleSchedule()
+                        } else {
+                            CronScheduleBuilder.cronSchedule("${floor(Math.random() * 60).toInt()} ${
+                                (schoolTimetable[theComingCourse.startSection - 1].first - tipOffset).let { "${it % 60} ${(it - (it % 60)) / 60}" }
+                            } ${ dateOfToday.let { "${it.dayOfMonth} ${it.month.value} ? ${it.year}" } }".also {
+                                verbose("schedule notification job for $qq: cron $it.")
+                            })
+                        }).build())
                     }
-                } else PluginMain.logger.warning { "Cannot start a class notification job for user $qq because school $belongingSchool is not exist in database or your lesson time is overpassed the last schedule." }
+                } else warning("Cannot start a class notification job for user $qq because school $belongingSchool is not exist in database or your lesson time is overpassed the last schedule.")
             }
-        } else PluginMain.logger.warning { "A notification job has started for user $qq and it is not allowed to start another one." }
+        } else warning("A notification job has started for user $qq and it is not allowed to start another one." )
+    }
+
+    fun stopAndRemoveUserNotificationJob(qq: Long) = userNotificationJobs.run {
+        if(this.containsKey(qq)) {
+            PluginMain.quartzScheduler.interrupt(this[qq]?.key)
+            PluginMain.quartzScheduler.deleteJob(this[qq]?.key)
+            this.remove(qq)
+            verbose("Stopped notification job for user $qq")
+        }
+    }
+
+    /**
+     * 在学校当前周数更新时调用
+     *
+     * @see Request.SyncSchoolWeekPeriodRequest
+     */
+    fun onChangeSchoolWeekPeriod(schoolId: Int) = launch(PluginMain.coroutineContext) {
+        verbose("ScheduleListenerService.onChangeSchoolWeekPeriod(schoolId=$schoolId)")
+        Database.suspendQuery { User.find { Users.schoolId eq schoolId }.forEach {
+            stopAndRemoveUserNotificationJob(it.qq)
+            removeUserTodayCourses(it.qq)
+            startUserNotificationJob(it.qq, schoolId, whichSection = null)
+        } }
+    }
+
+    /**
+     * 在学校更新时间表时调用
+     *
+     * @see Request.SyncSchoolTimetableRequest
+     */
+
+    fun onChangeSchoolTimetable(schoolId: Int) = launch(PluginMain.coroutineContext) {
+        verbose("ScheduleListenerService.onChangeSchoolTimetable(schoolId=$schoolId)")
+        removeSchoolTimetable(schoolId)
+        Database.suspendQuery { User.find { Users.schoolId eq schoolId }.forEach {
+            stopAndRemoveUserNotificationJob(it.qq)
+            removeUserTodayCourses(it.qq)
+            startUserNotificationJob(it.qq, schoolId, whichSection = null)
+        } }
+    }
+
+    /**
+     * 在用户修改了提前提醒时间时调用.
+     */
+    fun restartUserNotification(qq: Long) = Database.query<Unit> {
+        verbose("ScheduleListenerService.restartUserNotification(qq=$qq)")
+        val user = User.find { Users.qq eq qq }
+        if(!user.empty()) {
+            stopAndRemoveUserNotificationJob(user.first().qq)
+            startUserNotificationJob(user.first().qq, user.first().schoolId, whichSection = null)
+        } else error("User $qq doesn't exist, cannot restart notification job.")
     }
 
     override suspend fun main() {
@@ -180,7 +236,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
             JobBuilder.newJob(UserNotificationDistributionJob::class.java).build(),
             TriggerBuilder.newTrigger().startNow().build()
         )
-        PluginMain.logger.info { "ScheduleListenerService is started." }
+        info("ScheduleListenerService is started.")
     }
 
     /**
@@ -196,13 +252,15 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
                 val users = User.all()
                 for(user in users) {
                     stopAndRemoveUserNotificationJob(user.qq)
-                    startUserNotificationJob(user.qq, user.schoolId)
+                    removeUserTodayCourses(user.qq)
+                    startUserNotificationJob(user.qq, user.schoolId, whichSection = null)
                 }
             }
+            info("Notification distribution job has executed.")
         }
     }
 
-    class UserNotificationJob: Job {
+    class UserNotificationJob: InterruptableJob {
         override fun execute(context: JobExecutionContext?) {
             context?.jobDetail?.jobDataMap?.run {
                 context.jobDetail.jobDataMap.also {
@@ -211,21 +269,24 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
                     val teacherName = it.getString("theComingCourseTeacherName")
                     val locale = it.getString("theComingCourseLocale")
                     val nextSection = it.getInt("theNextClassSectionStart")
-
-                    //稳定性测试
-                    launch {
-                        PluginMain.botInstance?.friends?.filter { friend -> friend.id == qq }?.first()?.sendMessage("""
-                            下节课是${if(nextSection == -1) "今天的最后一节课" else ""} $courseName
-                            讲师：$teacherName
-                            时间：${it.getInt("theComingCourseStartTime").let { stamp -> "${(stamp - (stamp % 60)) / 60}:${stamp % 60}" }} -> ${it.getInt("theComingCourseEndTime").let { stamp -> "${(stamp - (stamp % 60)) / 60}:${stamp % 60}" }}
-                            地点：$locale
-                        """.trimIndent())
-                    }
-
+                    BotEventRouteService.sendMessageNonBlock(qq, """
+                        下节课是${if(nextSection == -1) "今天的最后一节课" else ""} $courseName
+                        讲师：$teacherName
+                        时间：${it.getInt("theComingCourseStartTime").let { stamp -> 
+                            "${(stamp - (stamp % 60)) / 60} : ${(stamp % 60).let { min -> if(min < 10) ("0$min") else min }}" }
+                        } -> ${it.getInt("theComingCourseEndTime").let { stamp -> 
+                            "${(stamp - (stamp % 60)) / 60} : ${(stamp % 60).let { min -> if(min < 10) ("0$min") else min }}" }
+                        }
+                        地点：$locale
+                        还有 ${it.getInt("theComingCourseStartTime") - (nowTime.hour * 60 + nowTime.minute)} 分钟上课。
+                    """.trimIndent())
+                    stopAndRemoveUserNotificationJob(qq)
                     if(nextSection != -1) startUserNotificationJob(qq, it.getInt("belongingSchool"), nextSection)
+                    info("Notification job executed for user $qq")
                 }
             }
         }
+        override fun interrupt() {  }
     }
 }
 

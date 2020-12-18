@@ -24,6 +24,8 @@ import kotlin.math.ceil
  **/
 object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
 
+    override val TAG: String = "TimeProviderService"
+
     private const val JOB_GROUP = "TimeProviderServiceGroup"
     /**
      * 当前年份
@@ -78,32 +80,25 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
         PluginMain.quartzScheduler.apply {
             scheduledQuartzJob.forEach { scheduleJob(it.first, it.second) }
         }.start()
-        PluginMain.logger.info { "TimeProviderServices(${scheduledQuartzJob.joinToString(", ") { it.first.key.name }}) have started." }
+        info("TimeProviderServices(${scheduledQuartzJob.joinToString(", ") { it.first.key.name }}) have started.")
         //unlimited job, kotlin still has no scheduler framework like quartz
         //awaitCancellation()
     }
 
     fun immediateUpdateSchoolWeekPeriod() {
-        PluginMain.quartzScheduler.apply {
-            scheduleJob(
-                JobBuilder.newJob(SchoolWeekPeriodUpdater::class.java).apply {
-                    withIdentity(JobKey.jobKey("ImmediateSchoolWeekPeriodUpdaterJob", JOB_GROUP))
-                }.build(),
-                TriggerBuilder.newTrigger().startNow().build()
-            )
-        }.start()
+        SchoolWeekPeriodUpdater().execute(null)
     }
 
     class YearUpdater : Job {
         override fun execute(context: JobExecutionContext?) {
             currentYear = LocalDate.now(ZoneId.of("Asia/Shanghai")).year
-            PluginMain.logger.info { "Job YearUpdater is executed. (currentYear -> $currentYear)" }
+            info("Job YearUpdater is executed. (currentYear -> $currentYear)")
         }
     }
     class SemesterUpdater: Job {
         override fun execute(context: JobExecutionContext?) {
             currentSemester = if(LocalDate.now(ZoneId.of("Asia/Shanghai")).monthValue in 3..7) 2 else 1
-            PluginMain.logger.info { "Job SemesterUpdater is executed. (currentSemester -> $currentSemester)" }
+            info("Job SemesterUpdater is executed. (currentSemester -> $currentSemester)")
         }
     }
     class SchoolWeekPeriodUpdater: Job {
@@ -118,7 +113,7 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
                     currentWeekPeriod[ttb.schoolId] = ttb.weekPeriodWhenAdd + result
                 }
             }
-            PluginMain.logger.info { "Job SchoolWeekPeriodUpdater is executed." }
+            info("Job SchoolWeekPeriodUpdater is executed.")
         }
     }
 }

@@ -12,7 +12,7 @@ import stageguard.sctimetable.service.TimeProviderService
  *
  * 它是一个object而不是class，因为每一个用户是一个表格内的项目。
  **/
-object SchoolTimetables : IntIdTable() {
+object SchoolTimetables : IntIdTable("schooltimetables") {
     /**
      * 学校ID
      **/

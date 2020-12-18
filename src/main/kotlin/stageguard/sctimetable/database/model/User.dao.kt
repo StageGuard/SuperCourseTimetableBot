@@ -11,7 +11,7 @@ import org.jetbrains.exposed.sql.Column
  *
  * 它是一个object而不是class，因为每一个用户是一个表格内的项目。
  **/
-object Users : IntIdTable() {
+object Users : IntIdTable("users") {
     /**
      * 用户QQ号
      **/
