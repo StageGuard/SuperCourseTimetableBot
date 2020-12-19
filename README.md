@@ -4,7 +4,7 @@
 
 ## 特性
 
-<img align="right" src="static/screenshot1.png" height="400">
+<img align="right" src="static/screenshot1.png" height="300">
 
 - #### Interactive Conversation Mode - 交互式聊天模式的用户接口
 
@@ -18,11 +18,11 @@
 
 - #### 允许用户自定义提醒时间
 
-<img align="right" src="static/screenshot2.png" height="400">
-
 用户发送 **修改提前提醒时间** 即可通过步骤引导修改。
 
 - #### 适配几乎所有使用超级课程表的高校
+
+<img align="right" src="static/screenshot2.png" height="300">
 
 插件工作时，为每个正在使用的用户的高校分别计算当前周数和时间表，互不冲突。
 
@@ -129,4 +129,3 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
-
