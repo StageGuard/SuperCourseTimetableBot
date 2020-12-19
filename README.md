@@ -4,8 +4,6 @@
 
 ## 特性
 
-<img align="right" src="static/screenshot1.png" height="400">
-
 - #### Interactive Conversation Mode - 交互式聊天模式的用户接口
 
 抛弃了传统的命令式交互，采用了更友好的交互式聊天模式。
@@ -17,8 +15,6 @@
 在 交互式聊天模式 的优势下，修改时间表的步骤变得非常容易。
 
 - #### 允许用户自定义提醒时间
-
-<img align="right" src="static/screenshot2.png" height="400">
 
 用户发送 **修改提前提醒时间** 即可通过步骤引导修改。
 
