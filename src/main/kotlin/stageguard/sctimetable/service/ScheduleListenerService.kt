@@ -10,10 +10,6 @@ package stageguard.sctimetable.service
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import net.mamoe.mirai.utils.debug
-import net.mamoe.mirai.utils.error
-import net.mamoe.mirai.utils.info
-import net.mamoe.mirai.utils.warning
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import org.quartz.*

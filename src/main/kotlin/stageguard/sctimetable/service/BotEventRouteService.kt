@@ -73,45 +73,47 @@ object BotEventRouteService : AbstractPluginManagedService() {
                         RequestHandlerService.sendRequest(Request.LoginRequest(sender.id, LoginInfoData(it[0], it[1])))
                     }
                 }
-                plainText.matches(Regex("^修改时间表")) -> Database.suspendQuery {
-                    verbose("capture 修改时间表")
-                    val thisUser = User.find { Users.qq eq sender.id }
-                    val schoolTimetable = SchoolTimetable.find { SchoolTimetables.schoolId eq thisUser.first().schoolId }.first()
-                    if(!thisUser.empty()) {
-                        interactiveConversation {
-                            send("""
+                plainText.matches(Regex("^修改时间表")) -> launch(this@BotEventRouteService.coroutineContext) {
+                    Database.suspendQuery {
+                        verbose("capture 修改时间表")
+                        val thisUser = User.find { Users.qq eq sender.id }
+                        val schoolTimetable = SchoolTimetable.find { SchoolTimetables.schoolId eq thisUser.first().schoolId }.first()
+                        if(!thisUser.empty()) {
+                            interactiveConversation {
+                                send("""
                                 确认要修改 ${schoolTimetable.schoolName} 的时间表吗
                                 注意：修改时间表将会影响到本校所有用户，在修改前请确保时间表确实有误！
                                 若你不知道当前时间表数据，发送"查看时间表"查看。
                                 发送"确认"继续修改，否则取消修改。
                             """.trimIndent())
-                            when(judge(timeoutLimit = 30000L)) {
-                                "确认" -> {
-                                    send("""
+                                when(judge(timeoutLimit = 30000L)) {
+                                    "确认" -> {
+                                        send("""
                                         要修改当前周数还是时间表？
                                         发送 "周数" 或 "时间表" 决定
                                     """.trimIndent())
-                                    when(judge(tryLimit = 3, timeoutLimit = 30000L) { it == "周数" || it == "时间表" }) {
-                                        "周数" -> {
-                                            send("正在修改当前周数\n请输入一个数字表示当前周数")
-                                            RequestHandlerService.sendRequest(Request.SyncSchoolWeekPeriodRequest(sender.id, receive(3) { it.toInt() > 0 }.toInt()))
-                                        }
-                                        "时间表" -> {
-                                            send("正在修改当前时间表\n请输入一个数字表示当前周数")
+                                        when(judge(tryLimit = 3, timeoutLimit = 30000L) { it == "周数" || it == "时间表" }) {
+                                            "周数" -> {
+                                                send("正在修改当前周数\n请输入一个数字表示当前周数")
+                                                RequestHandlerService.sendRequest(Request.SyncSchoolWeekPeriodRequest(sender.id, receive(3) { it.toInt() > 0 }.toInt()))
+                                            }
+                                            "时间表" -> {
+                                                send("正在修改当前时间表\n请输入一个数字表示当前周数")
+                                            }
                                         }
                                     }
+                                    else -> finish()
                                 }
-                                else -> finish()
-                            }
-                        }.finish(failed = {
-                            when(it) {
-                                is InteractiveConversationBuilder.QuitConversationExceptions.IllegalInputException -> sender.sendMessage("输入格式有误次数，过多，请重新发送\"修改时间表\"")
-                                is InteractiveConversationBuilder.QuitConversationExceptions.TimeoutException -> sender.sendMessage("长时间未输入，请重新发送\"修改时间表\"")
-                                is InteractiveConversationBuilder.QuitConversationExceptions.AdvancedQuitException -> sender.sendMessage("取消修改时间表。")
-                            }
-                        })
-                    } else {
-                        sender.sendMessage("你还没有登录超级课表，无法修改时间表")
+                            }.finish(failed = {
+                                when(it) {
+                                    is InteractiveConversationBuilder.QuitConversationExceptions.IllegalInputException -> sender.sendMessage("输入格式有误次数，过多，请重新发送\"修改时间表\"")
+                                    is InteractiveConversationBuilder.QuitConversationExceptions.TimeoutException -> sender.sendMessage("长时间未输入，请重新发送\"修改时间表\"")
+                                    is InteractiveConversationBuilder.QuitConversationExceptions.AdvancedQuitException -> sender.sendMessage("取消修改时间表。")
+                                }
+                            })
+                        } else {
+                            sender.sendMessage("你还没有登录超级课表，无法修改时间表")
+                        }
                     }
                 }
                 plainText.matches(Regex("^查看时间表")) -> launch(this@BotEventRouteService.coroutineContext) {
@@ -167,7 +169,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                         }
                     })
                 }
-                plainText.startsWith("修改密码") -> launch(PluginMain.coroutineContext) {
+                plainText.startsWith("修改密码") -> launch(this@BotEventRouteService.coroutineContext) {
                     verbose("capture 修改密码")
                     Database.suspendQuery {
                         val user = User.find { Users.qq eq sender.id }
@@ -216,7 +218,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                         注意：当前处于初代测试阶段。
                     """.trimIndent())
                 }
-                plainText.startsWith("状态") -> launch(PluginMain.coroutineContext) {
+                plainText.startsWith("状态") -> launch(this@BotEventRouteService.coroutineContext) {
                     val osMxBean: OperatingSystemMXBean = ManagementFactory.getOperatingSystemMXBean() as OperatingSystemMXBean
                     Database.suspendQuery {
                         sender.sendMessage("""
