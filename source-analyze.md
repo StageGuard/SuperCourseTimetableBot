@@ -14,18 +14,18 @@ SuperCourseTimetableBot 将不同工作放在不同的 [service](https://github.
 看看插件的接入点[`PluginMain.kt`](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/PluginMain.kt)：
 
 ```kotlin
-object PluginMain : KotlinPlugin(...) {
-    ...
+object PluginMain : KotlinPlugin(/*...*/) {
+    /*...*/
     override fun onEnable() {
         PluginConfig.reload()
         PluginData.reload()
         logger.info { "Plugin loaded" }
         Database.connect()
-        logger.info { "Waiting target Bot ${PluginConfig.qq} goes online..." }
+        logger.info { "Waiting target Bot ${PluginConfig.qq} goes online/*...*/" }
 
         subscribe<BotOnlineEvent> {
             if(this.bot.id == PluginConfig.qq) {
-                ...
+                /*...*/
                 TimeProviderService.start()
                 ScheduleListenerService.start()
                 RequestHandlerService.start()
@@ -34,7 +34,7 @@ object PluginMain : KotlinPlugin(...) {
             } else ListeningStatus.LISTENING
         }
     }
-    ...
+    /*...*/
 }
 ```
 
@@ -52,21 +52,21 @@ override suspend fun main() {
         this.accept()
         this@BotEventRouteService.launch(coroutineContext) {
             delay(5000L)
-            PluginMain.targetBotInstance.friends[this@subscribe.fromId]?.sendMessage("欢迎...")
+            PluginMain.targetBotInstance.friends[this@subscribe.fromId]?.sendMessage("欢迎/*...*/")
         }
     }ListeningStatus.LISTENING }
     subscribeAlways<FriendMessageEvent> { if(this.bot.id == PluginConfig.qq) {
         val plainText = message.firstIsInstanceOrNull<PlainText>()?.content ?: ""
         when {
-            plainText.matches(Regex("^登录超级(课程表|课表)")) -> {...}
-            plainText.matches(Regex("^修改时间表")) -> launch(this@BotEventRouteService.coroutineContext) {...}
-            plainText.matches(Regex("^查看时间表")) -> launch(this@BotEventRouteService.coroutineContext) {...}
-            plainText.matches(Regex("^今[日天]课[表程]")) -> launch(this@BotEventRouteService.coroutineContext) {...}
-            plainText.startsWith("删除用户") -> {...}
-            plainText.startsWith("修改密码") -> launch(this@BotEventRouteService.coroutineContext) {...}
-            plainText.startsWith("修改提前提醒时间") -> {...}
-            (plainText.startsWith("怎么用") || plainText.startsWith("帮助")) -> {...}
-            plainText.startsWith("状态") -> launch(this@BotEventRouteService.coroutineContext) {...}
+            plainText.matches(Regex("^登录超级(课程表|课表)")) -> {/*...*/}
+            plainText.matches(Regex("^修改时间表")) -> launch(this@BotEventRouteService.coroutineContext) {/*...*/}
+            plainText.matches(Regex("^查看时间表")) -> launch(this@BotEventRouteService.coroutineContext) {/*...*/}
+            plainText.matches(Regex("^今[日天]课[表程]")) -> launch(this@BotEventRouteService.coroutineContext) {/*...*/}
+            plainText.startsWith("删除用户") -> {/*...*/}
+            plainText.startsWith("修改密码") -> launch(this@BotEventRouteService.coroutineContext) {/*...*/}
+            plainText.startsWith("修改提前提醒时间") -> {/*...*/}
+            (plainText.startsWith("怎么用") || plainText.startsWith("帮助")) -> {/*...*/}
+            plainText.startsWith("状态") -> launch(this@BotEventRouteService.coroutineContext) {/*...*/}
         }
     } ListeningStatus.LISTENING }
     verbose("start listening FriendMessageEvent and NewFriendRequestEvent")
@@ -79,9 +79,9 @@ override suspend fun main() {
 
 ```kotlin
 interactiveConversation {
-    ...
+    /*...*/
 }.finish {
-    ...
+    /*...*/
 }
 ```
 
@@ -98,26 +98,26 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
     override suspend fun main() { for(request in handlerChannel) { if(this@RequestHandlerService.isActive) {
         info("Handle Request: $request")
         when (request) {
-            is Request.LoginRequest -> {...}
-            is Request.SyncCourseRequest -> {...}
-            is Request.InternalSyncCourseRequestViaCookieDataRequest -> {...}
-            is Request.DeleteCourseRequest -> {...}
-            is Request.SyncSchoolTimetableRequest -> {...}
-            is Request.SyncSchoolWeekPeriodRequest -> {...}
-            is Request.ChangeUserPasswordRequest -> {...}
+            is Request.LoginRequest -> {/*...*/}
+            is Request.SyncCourseRequest -> {/*...*/}
+            is Request.InternalSyncCourseRequestViaCookieDataRequest -> {/*...*/}
+            is Request.DeleteCourseRequest -> {/*...*/}
+            is Request.SyncSchoolTimetableRequest -> {/*...*/}
+            is Request.SyncSchoolWeekPeriodRequest -> {/*...*/}
+            is Request.ChangeUserPasswordRequest -> {/*...*/}
         }
     } } }
     
     fun sendRequest(request: Request) { launch(coroutineContext) { handlerChannel.send(request) } }
 }
 sealed class Request {
-    class LoginRequest(val qq: Long, val loginInfoData: LoginInfoData) : Request() {...}
-    class SyncCourseRequest(val qq: Long) : Request() {...}
-    class InternalSyncCourseRequestViaCookieDataRequest(val qq: Long, val cookieData: LoginCookieData) : Request() ...}
-    class DeleteCourseRequest(val qq: Long) : Request() {...}
-    class SyncSchoolTimetableRequest(val qq: Long, val newTimetable: List<Pair<String, String>>? = null, val forceUpdate: Boolean = false) : Request() {...}
-    class SyncSchoolWeekPeriodRequest(val qq: Long, val currentWeek: Int) : Request() {...}
-    class ChangeUserPasswordRequest(val qq: Long, val password: String) : Request() {...}
+    class LoginRequest(val qq: Long, val loginInfoData: LoginInfoData) : Request() {/*...*/}
+    class SyncCourseRequest(val qq: Long) : Request() {/*...*/}
+    class InternalSyncCourseRequestViaCookieDataRequest(val qq: Long, val cookieData: LoginCookieData) : Request() {/*...*/}
+    class DeleteCourseRequest(val qq: Long) : Request() {/*...*/}
+    class SyncSchoolTimetableRequest(val qq: Long, val newTimetable: List<Pair<String, String>>? = null, val forceUpdate: Boolean = false) : Request() {/*...*/}
+    class SyncSchoolWeekPeriodRequest(val qq: Long, val currentWeek: Int) : Request() {/*...*/}
+    class ChangeUserPasswordRequest(val qq: Long, val password: String) : Request() {/*...*/}
 }
 ```
 
@@ -134,7 +134,7 @@ for(request in handlerChannel) {
 `RequestHandlerService` 定义了一个 `sendRequest(request: Request)` 方法来发送一个事件非阻塞地发送到 `handlerChannel`。
 
 ```kotlin
-RequestHandlerService.sendRequest(Request.XXX(arguments...))
+RequestHandlerService.sendRequest(Request.XXX(arguments/*...*/))
 ```
 
 所有事件都被定义在了 `sealed class Request` 下，每一个事件都有详细的解释。
@@ -145,7 +145,7 @@ RequestHandlerService.sendRequest(Request.XXX(arguments...))
 
 ```kotlin
 object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
-      ...
+      /*...*/
       private val userNotificationJobs: MutableMap<Long, JobDetail> = mutableMapOf()
       private val userCourses: MutableMap<Long, List<SingleCourse>> = mutableMapOf()
       private val cachedSchoolTimetables: MutableMap<Int, List<Pair<Int, Int>>> = mutableMapOf()
@@ -153,13 +153,13 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
       private val nowTime
           get() = LocalDateTime.now(ZoneId.of("Asia/Shanghai"))
   
-      fun getSchoolTimetable(schoolId: Int): List<Pair<Int, Int>> = cachedSchoolTimetables[schoolId] ?: run {...}
+      fun getSchoolTimetable(schoolId: Int): List<Pair<Int, Int>> = cachedSchoolTimetables[schoolId] ?: run {/*...*/}
   
-      fun removeSchoolTimetable(schoolId: Int) {...}
+      fun removeSchoolTimetable(schoolId: Int) {/*...*/}
   
-      fun getUserTodayCourses(qq: Long, belongingSchool: Int): List<SingleCourse> = userCourses.run {...}
+      fun getUserTodayCourses(qq: Long, belongingSchool: Int): List<SingleCourse> = userCourses.run {/*...*/}
   
-      fun removeUserTodayCourses(qq: Long) {...}
+      fun removeUserTodayCourses(qq: Long) {/*...*/}
   
       /**
        * 开始一个课程提醒 Job
@@ -207,9 +207,9 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
                               })
                           }).build())
                       }
-                  } else warning("...")
+                  } else warning("/*...*/")
               }
-          } else warning("..." )
+          } else warning("/*...*/" )
       }
   
       fun stopAndRemoveUserNotificationJob(qq: Long) = userNotificationJobs.run {
@@ -310,7 +310,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
        */
       class UserNotificationJob: InterruptableJob {
           override fun execute(context: JobExecutionContext?) {
-              BotEventRouteService.sendMessageNonBlock(...)
+              BotEventRouteService.sendMessageNonBlock(/*...*/)
               stopAndRemoveUserNotificationJob(qq)
               if(nextSection != -1) startUserNotificationJob(qq, it.getInt("belongingSchool"), nextSection)
               info("Notification job executed for user $qq")
@@ -319,16 +319,16 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
       }
   }
   
-  data class SingleCourse(...)
+  data class SingleCourse(/*...*/)
 ```
 
 `ScheduleListenerService`比较复杂，我们从 `main` 开始看：
 
 ```kotlin
 //scheduled job
-PluginMain.quartzScheduler.scheduleJob(...)
+PluginMain.quartzScheduler.scheduleJob(/*...*/)
 //immediate start once
-PluginMain.quartzScheduler.scheduleJob(...)
+PluginMain.quartzScheduler.scheduleJob(/*...*/)
 ```
 
 在 `main` 中，分配了一个立刻执行和每天凌晨 00:00:30 定时执行的任务，它们都指向了 `UserNotificationDistributionJob` 任务：
@@ -336,7 +336,7 @@ PluginMain.quartzScheduler.scheduleJob(...)
 ```kotlin
 class UserNotificationDistributionJob : Job {
     override fun execute(context: JobExecutionContext?) {
-        ...
+        /*...*/
         Database.query {
             val users = User.all()
             for(user in users) {
@@ -368,7 +368,7 @@ class UserNotificationDistributionJob : Job {
 class UserNotificationJob: InterruptableJob {
     override fun execute(context: JobExecutionContext?) {
         val nextSection = it.getInt("theNextClassSectionStart")
-        BotEventRouteService.sendMessageNonBlock(...)
+        BotEventRouteService.sendMessageNonBlock(/*...*/)
         stopAndRemoveUserNotificationJob(qq)
         if(nextSection != -1) startUserNotificationJob(qq, it.getInt("belongingSchool"), nextSection)
         info("Notification job executed for user $qq")
@@ -412,17 +412,19 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
      * 当前年份
      **/
     var currentYear: Int = 0
+
     /**
      * 当前学期，```1```表示秋季学期，```2```表示夏季学期
      **/
     var currentSemester: Int = 0
+
     /**
      * 当前周数，```Map```中的```key```为学校id，```value```为当前周数。
      **/
     var currentWeekPeriod: MutableMap<Int, Int> = mutableMapOf()
 
     val currentSemesterBeginYear: Int
-        get() = if(currentSemester == 2) currentYear - 1 else currentYear
+        get() = if (currentSemester == 2) currentYear - 1 else currentYear
 
     val currentTimeStamp: LocalDate
         get() = LocalDate.now(ZoneId.of("Asia/Shanghai"))
@@ -441,7 +443,7 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
 
     override suspend fun main() {
         PluginMain.quartzScheduler.apply {
-            scheduledQuartzJob.forEach { ... }
+            scheduledQuartzJob.forEach { /*...*/ }
         }.start()
         info("TimeProviderServices(${scheduledQuartzJob.joinToString(", ") { it.first.key.name }}) have started.")
     }
@@ -452,27 +454,28 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
             info("Job YearUpdater is executed. (currentYear -> $currentYear)")
         }
     }
-    class SemesterUpdater: Job {
+    class SemesterUpdater : Job {
         override fun execute(context: JobExecutionContext?) {
-            currentSemester = if(LocalDate.now(ZoneId.of("Asia/Shanghai")).monthValue in 3..7) 2 else 1
+            currentSemester = if (LocalDate.now(ZoneId.of("Asia/Shanghai")).monthValue in 3..7) 2 else 1
             info("Job SemesterUpdater is executed. (currentSemester -> $currentSemester)")
         }
     }
-    class SchoolWeekPeriodUpdater: Job {
+    class SchoolWeekPeriodUpdater : Job {
         override fun execute(context: JobExecutionContext?) {
             Database.query {
                 val timetables = SchoolTimetable.all()
                 for (ttb in timetables) {
                     val addTime = LocalDate.parse(ttb.timeStampWhenAdd)
                     val dayAddedBasedWeek = addTime.dayOfWeek.value + (currentTimeStamp.toEpochDay() - addTime.toEpochDay())
-                    val result = if(dayAddedBasedWeek <= 7) { 0 } else { ceil((dayAddedBasedWeek / 7).toFloat()).toInt() }
-                    if(currentWeekPeriod.containsKey(ttb.schoolId)) currentWeekPeriod.remove(ttb.schoolId)
+                    val result = if (dayAddedBasedWeek <= 7) { 0 } else { ceil((dayAddedBasedWeek / 7).toFloat()).toInt() }
+                    if (currentWeekPeriod.containsKey(ttb.schoolId)) currentWeekPeriod.remove(ttb.schoolId)
                     currentWeekPeriod[ttb.schoolId] = ttb.weekPeriodWhenAdd + result
                 }
             }
             info("Job SchoolWeekPeriodUpdater is executed.")
         }
     }
+}
 ```
 
 `TimeProviderService`的实现也非常简单，在 `main` 中开启了 3 个定时任务和 3 个立即启动的任务，他们都用于更新开头的那些变量 `currentXXX`，并直接提供给外部访问。
