@@ -184,7 +184,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
      * @see Request.SyncSchoolWeekPeriodRequest
      */
     fun onChangeSchoolWeekPeriod(schoolId: Int) = launch(PluginMain.coroutineContext) {
-        verbose("ScheduleListenerService.onChangeSchoolWeekPeriod(schoolId=$schoolId)")
+        info("onChangeSchoolWeekPeriod(schoolId=$schoolId)")
         Database.suspendQuery { User.find { Users.schoolId eq schoolId }.forEach {
             stopAndRemoveUserNotificationJob(it.qq)
             removeUserTodayCourses(it.qq)
@@ -199,7 +199,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
      */
 
     fun onChangeSchoolTimetable(schoolId: Int) = launch(PluginMain.coroutineContext) {
-        verbose("ScheduleListenerService.onChangeSchoolTimetable(schoolId=$schoolId)")
+        info("onChangeSchoolTimetable(schoolId=$schoolId)")
         removeSchoolTimetable(schoolId)
         Database.suspendQuery { User.find { Users.schoolId eq schoolId }.forEach {
             stopAndRemoveUserNotificationJob(it.qq)
@@ -212,7 +212,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
      * 在用户修改了提前提醒时间时调用.
      */
     fun restartUserNotification(qq: Long) = Database.query<Unit> {
-        verbose("ScheduleListenerService.restartUserNotification(qq=$qq)")
+        info("ScheduleListenerService.restartUserNotification(qq=$qq)")
         val user = User.find { Users.qq eq qq }
         if(!user.empty()) {
             stopAndRemoveUserNotificationJob(user.first().qq)
