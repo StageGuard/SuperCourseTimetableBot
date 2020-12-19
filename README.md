@@ -32,6 +32,12 @@
 
 ## 使用
 
+### 立即体验
+
+添加 QQ好友：202746796，将会自动同意好友请求并发送提示。
+
+### 部署
+
 SuperCourseTimetableBot 是**基于 `mirai-core 2.0-M1` 版本和 `mirai-console 2.0-M1` 版本的插件，不兼容 1.x 版本**。
 
 1. 运行一个新的或使用现有的 MySQL 或 MariaDB 数据库，在数据库中新建一个 database，名称随意。
