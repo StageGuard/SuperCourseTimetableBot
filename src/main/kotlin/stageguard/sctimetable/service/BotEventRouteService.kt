@@ -12,7 +12,6 @@ import net.mamoe.mirai.message.data.Message
 import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.firstIsInstanceOrNull
 import net.mamoe.mirai.message.nextMessage
-import net.mamoe.mirai.utils.info
 import stageguard.sctimetable.AbstractPluginManagedService
 import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.PluginData
@@ -25,6 +24,8 @@ import stageguard.sctimetable.database.model.User
 import stageguard.sctimetable.database.model.Users
 import stageguard.sctimetable.utils.Either
 import java.lang.Exception
+import java.lang.management.ManagementFactory
+import com.sun.management.OperatingSystemMXBean
 
 object BotEventRouteService : AbstractPluginManagedService() {
 
@@ -201,21 +202,28 @@ object BotEventRouteService : AbstractPluginManagedService() {
                           "修改密码" - 修改记录在机器人数据库中的密码
                           "删除用户" - 删除你的记录在机器人数据库中的信息，并停止课程提醒服务。
                           "修改提前提醒时间" - 修改上课提前多长时间提醒
+                          "状态" - 查看超级课表课程提醒QQ机器人的运行情况
                        
-                        注意：当前处于初代测试阶段，如使用过程中有任何问题，请联系机器人主人QQ: 1355416608
+                        注意：当前处于初代测试阶段，如使用过程中有任何问题，请联系机器人主人或于 https://github.com/KonnyakuCamp/SuperCourseTimetableBot 中新建 ISSUE 来反馈。
                     """.trimIndent())
                 }
-                plainText.startsWith("test interactive conversation") -> {
-                    interactiveConversation {
-                        send("input1")
-                        receive(3) { it.toInt() in 1..10 }
-                        send("input2")
-                        receive()
-                    }.finish(failed = {
-                        sendMessageNonBlock(sender.id, "请重试！")
-                    }, success = {
-                        PluginMain.logger.info { it.toString() }
-                    })
+                plainText.startsWith("状态") -> launch(PluginMain.coroutineContext) {
+                    val osMxBean: OperatingSystemMXBean = ManagementFactory.getOperatingSystemMXBean() as OperatingSystemMXBean
+                    Database.suspendQuery {
+                        sender.sendMessage("""
+                            SuperCourseTimetable Plugin
+                            Running on powerful Mirai Console
+                            
+                            Status: 
+                            - Serving ${User.all().count()} users.
+                            - System info: ${osMxBean.name} (${osMxBean.arch})
+                            - Process(java) / System CPU load: ${String.format("%.2f", osMxBean.processCpuLoad * 100)}% / ${String.format("%.2f", osMxBean.cpuLoad * 100)}%
+                            - Memory usage / total: ${(osMxBean.totalMemorySize - osMxBean.freeMemorySize) / 1024 / 1024}MB / ${osMxBean.totalMemorySize / 1024 / 1024}MB
+                            
+                            This project is a open source project.
+                            You can visit https://github.com/KonnyakuCamp/SuperCourseTimetableBot for more details.
+                        """.trimIndent())
+                    }
                 }
             }
         }
