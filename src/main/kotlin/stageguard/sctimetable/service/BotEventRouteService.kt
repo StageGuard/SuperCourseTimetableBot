@@ -213,7 +213,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                           "修改提前提醒时间" - 修改上课提前多长时间提醒
                           "状态" - 查看超级课表课程提醒QQ机器人的运行情况
                        
-                        注意：当前处于初代测试阶段，如使用过程中有任何问题，请联系机器人主人或于 https://github.com/KonnyakuCamp/SuperCourseTimetableBot 中新建 ISSUE 来反馈。
+                        注意：当前处于初代测试阶段。
                     """.trimIndent())
                 }
                 plainText.startsWith("状态") -> launch(PluginMain.coroutineContext) {
