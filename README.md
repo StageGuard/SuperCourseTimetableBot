@@ -4,7 +4,7 @@
 
 ## 特性
 
-<img align="right" src="https://cdn.jsdelivr.net/gh/KonnyakuCamp/SuperCourseTimetableBot/blob/main/static/screenshot1.png" height="400">
+<img align="right" src="static/screenshot1.png" height="400">
 
 - #### Interactive Conversation Mode - 交互式聊天模式的用户接口
 
@@ -18,9 +18,9 @@
 
 - #### 允许用户自定义提醒时间
 
-用户发送 **修改提前提醒时间** 即可通过步骤引导修改。
+<img align="right" src="static/screenshot2.png" height="400">
 
-<img align="right" src="https://cdn.jsdelivr.net/gh/KonnyakuCamp/SuperCourseTimetableBot/blob/main/static/screenshot2.png" height="400">
+用户发送 **修改提前提醒时间** 即可通过步骤引导修改。
 
 - #### 适配几乎所有使用超级课程表的高校
 
@@ -97,7 +97,7 @@ SuperCourseTimetableBot 并未经过长期运行测试，对于其 `Quartz` 任�
 
 ## 贡献
 
-欢迎任何~~使用者~~大佬们贡献这个项目，你可以通过**反馈 BUG**，**提出 Pull Request** 申请~~，或修改文档错别字~~来贡献这个项目。
+欢迎任何~~使用者~~大佬们贡献这个项目，你可以通过**反馈 BUG**，**提出 Pull Request** 申请，~~或修改文档错别字~~来贡献这个项目。
 
 > 如果你有贡献这个项目的想法，建议你先浏览一下上面的代码结构解析。
 
