@@ -187,7 +187,7 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             //首次从服务器同步时间表
                             syncFromServer()
                             info("Sync timetable from server for ${request.qq}'s school successfully.")
-                            BotEventRouteService.sendMessageNonBlock(request.qq, "成功从服务器同步学校的时间表信息。")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "成功从服务器同步学校的时间表信息。\n注意：这是首次同步您的学校时间表，若当前周数有误，请发送\"修改时间表\"修改。")
                             sendRequest(Request.SyncSchoolWeekPeriodRequest(request.qq, 1))
                         } else if(request.forceUpdate) {
                             schoolTimeTable.first().delete()
