@@ -71,6 +71,7 @@ data class __InternalStudent(
     val mobileNumber: String,
     val nickName: String,
     val nickNameReview: Int,
+    val nowStatus: String = "",
     val oldAvatarUrl: String,
     val oldNickName: String,
     val oldnicknamereview: Int,
