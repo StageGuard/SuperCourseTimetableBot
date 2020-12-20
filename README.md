@@ -95,6 +95,24 @@ SuperCourseTimetableBot 并未经过长期运行测试，对于其 `Quartz` 任�
 
 建议将 mirai-console 的日志等级调整为 `ALL`，以便捕获问题。
 
+> 在调整日志等级为 `ALL` 后 HikariCP 和 Quartz 库在每10秒就输出一次日志：
+>
+> ```
+> 2020-xx-xx xx:xx:Xx D/com.zaxxer.hikari.pool.HikariPool: HikariPool-1 - Pool stats (total=10, active=0, idle=10, waiting=0)
+> 2020-xx-xx xx:xx:Xx D/com.zaxxer.hikari.pool.HikariPool: HikariPool-1 - Fill pool skipped, pool is at sufficient level.
+> 2020-xx-xx xx:xx:Xx D/org.quartz.core.QuartzSchedulerThread: batch acquisition of 0 triggers
+> ```
+>
+> 它的输出过于频繁，会遮盖住 `SuperCourseTimetableBot` 的输出，你可以在 console 的配置文件添加如下配置：
+>
+> ```yaml
+> loggers:
+>   org.quartz.core.QuartzSchedulerThread: NONE
+>   com.zaxxer.hikari.pool.HikariPool: NONE
+> ```
+>
+> 来禁用它们的输出。
+
 如有任何问题，请立即新建一个 ISSUE 来反馈，我们非常需要知道是否有稳定性问题。
 
 ## 工作原理 & 源码解析
