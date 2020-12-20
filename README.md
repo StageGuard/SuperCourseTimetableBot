@@ -101,6 +101,12 @@ SuperCourseTimetableBot 并未经过长期运行测试，对于其 `Quartz` 任�
 
 如果你想了解 SuperCourseTimetableBot 是如何工作的，请阅读 [SuperCourseTimetableBot 代码结构解析](source-analyze.md)。
 
+## TODO("")
+
+- [ ] 手动修改时间表
+- [ ] 在时间表被修改时通知本校其他用户
+- [ ] 支持手动添加课程(补课或永久调整的课程)
+
 ## 贡献
 
 欢迎任何~~使用者~~大佬们贡献这个项目，你可以通过**反馈 BUG**，**提出 Pull Request** 申请，~~或修改文档错别字~~来贡献这个项目。
