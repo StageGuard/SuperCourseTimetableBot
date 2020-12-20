@@ -57,7 +57,7 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             is Either.Left -> {
                                 Database.query { User.new {
                                     qq = request.qq
-                                    studentId = loginReceipt.value.data.student.studentNum.toLong()
+                                    studentId = loginReceipt.value.data.student.studentId.toLong()
                                     name = loginReceipt.value.data.student.nickName
                                     schoolId = loginReceipt.value.data.student.schoolId
                                     account = request.loginInfoData.username

@@ -86,7 +86,7 @@ data class __InternalStudent(
     val schoolRoll: Int,
     val showRate: Boolean,
     val studentId: Int,
-    val studentNum: String,
+    val studentNum: String = "",
     val studentType: Int,
     val superId: String,
     val supportAuto: Boolean,

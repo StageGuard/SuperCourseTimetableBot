@@ -106,6 +106,7 @@ object SuperCourseApiService {
             }))
             //超级课表的api可真是狗屎，逼我自定义一个Either
             val result = (response.content.readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}")
+            //println(result)
             if(Pattern.compile("errorStr").matcher(result).find()) {
                 Either.Right(Json.decodeFromString(result))
             } else {
