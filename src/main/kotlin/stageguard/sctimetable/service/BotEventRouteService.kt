@@ -187,7 +187,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                 plainText.startsWith("修改提前提醒时间") -> {
                     verbose("capture 修改提前提醒时间")
                     interactiveConversation {
-                        send("你想在上课前多长时间收到课程提醒(单位：分钟)？\n当前为提前 ${PluginData.advancedTipOffset[sender.id] ?: PluginConfig.advancedTipTime} 分钟提醒。")
+                        send("你想在上课前多长时间收到课程提醒(单位：分钟)？\n请输入一个数字代表你想要修改的时间。\n当前为提前 ${PluginData.advancedTipOffset[sender.id] ?: PluginConfig.advancedTipTime} 分钟提醒。")
                         receive(tryLimit = 3, timeoutLimit = 30000L) { it.toInt() > 0 }
                     }.finish(failed = {
                         when(it) {
