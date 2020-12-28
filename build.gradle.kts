@@ -2,7 +2,7 @@
 plugins {
     kotlin("jvm") version "1.4.20"
     kotlin("plugin.serialization") version "1.4.20"
-    id("net.mamoe.mirai-console") version "2.0-M1-1"
+    id("net.mamoe.mirai-console") version "2.0-M2"
 }
 
 group = "13554"
@@ -20,7 +20,7 @@ val hikariVersion = "3.4.5"
 val mysqlVersion = "8.0.19"
 val yamlKtVersion = "0.7.4"
 val quartzVersion = "2.3.2"
-val miraiSlf4jBridgeVersion = "1.0.1"
+val miraiSlf4jBridgeVersion = "1.1.0"
 
 dependencies {
     testImplementation(kotlin("test-junit5"))

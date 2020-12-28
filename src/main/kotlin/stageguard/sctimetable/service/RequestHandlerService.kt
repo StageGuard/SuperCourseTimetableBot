@@ -198,7 +198,6 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             BotEventRouteService.sendMessageNonBlock(request.qq, "成功从服务器同步学校的时间表信息。\n注意：这是首次同步您的学校时间表，若当前周数有误，请发送\"修改时间表\"修改。")
                             sendRequest(Request.SyncSchoolWeekPeriodRequest(request.qq, 1))
                         } else if(request.forceUpdate) {
-                            schoolTimeTable.first().delete()
                             if(request.newTimetable == null) {
                                 //从服务器更新时间表
                                 syncFromServer()
@@ -212,6 +211,9 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                 ScheduleListenerService.onChangeSchoolTimetable(user.first().schoolId)
                                 info("Sync timetable from user custom list for ${request.qq}'s school successfully, forceUpdate=${request.forceUpdate}.")
                                 BotEventRouteService.sendMessageNonBlock(request.qq, "已修正学校时间表，将影响学校的其他用户。")
+                                User.all().forEach {
+
+                                }
                                 //提醒这个学校的其他人时间表已被手动修改
                             }
                         } else {

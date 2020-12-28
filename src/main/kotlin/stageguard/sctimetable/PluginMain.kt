@@ -11,6 +11,7 @@ package stageguard.sctimetable
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
+import net.mamoe.mirai.event.GlobalEventChannel
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotOnlineEvent
 import net.mamoe.mirai.event.subscribe
@@ -41,15 +42,14 @@ object PluginMain : KotlinPlugin(
 
         logger.info { "Waiting target Bot ${PluginConfig.qq} goes online..." }
 
-        subscribe<BotOnlineEvent> {
-            if(this.bot.id == PluginConfig.qq) {
-                targetBotInstance = this.bot
-                TimeProviderService.start()
-                ScheduleListenerService.start()
-                RequestHandlerService.start()
-                BotEventRouteService.start()
-                ListeningStatus.STOPPED
-            } else ListeningStatus.LISTENING
+        GlobalEventChannel.filter {
+            it is BotOnlineEvent && it.bot.id == PluginConfig.qq
+        }.subscribeOnce<BotOnlineEvent> {
+            targetBotInstance = this.bot
+            TimeProviderService.start()
+            ScheduleListenerService.start()
+            RequestHandlerService.start()
+            BotEventRouteService.start()
         }
     }
 

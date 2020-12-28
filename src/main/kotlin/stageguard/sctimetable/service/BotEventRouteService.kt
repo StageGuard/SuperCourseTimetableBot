@@ -34,13 +34,16 @@ import stageguard.sctimetable.utils.Either
 import java.lang.Exception
 import java.lang.management.ManagementFactory
 import com.sun.management.OperatingSystemMXBean
+import java.util.regex.Pattern
 
 object BotEventRouteService : AbstractPluginManagedService() {
 
     override val TAG: String = "BotEventRouteService"
 
+    private val TIME_PERIOD_EXPRESSION = Pattern.compile("(\\d){1,2}[:：](\\d){1,2}-(\\d){1,2}[:：](\\d){1,2}")
+
     override suspend fun main() {
-        subscribe<NewFriendRequestEvent> {
+        PluginMain.targetBotInstance.eventChannel.subscribe<NewFriendRequestEvent> {
             if(this.bot.id == PluginConfig.qq) {
                 this.accept()
                 this@BotEventRouteService.launch(coroutineContext) {
@@ -53,7 +56,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
             }
             ListeningStatus.LISTENING
         }
-        subscribeAlways<FriendMessageEvent> { if(this.bot.id == PluginConfig.qq) {
+        PluginMain.targetBotInstance.eventChannel.subscribeAlways<FriendMessageEvent> { if(this.bot.id == PluginConfig.qq) {
             val plainText = message.firstIsInstanceOrNull<PlainText>()?.content ?: ""
             when {
                 plainText.matches(Regex("^登录超级(课程表|课表)")) -> {
@@ -98,7 +101,17 @@ object BotEventRouteService : AbstractPluginManagedService() {
                                                 RequestHandlerService.sendRequest(Request.SyncSchoolWeekPeriodRequest(sender.id, receive(3) { it.toInt() > 0 }.toInt()))
                                             }
                                             "时间表" -> {
-                                                send("正在修改当前时间表\n请输入一个数字表示当前周数")
+                                                send("正在修改当前时间表\n请输入一个数字表示当前学校一天有几节课\n默认为 8 节课")
+                                                val timetable = mutableListOf<Pair<String, String>>()
+                                                repeat(judge(timeoutLimit = 30000L, tryLimit = 3) { it.toInt() > 2 }.toInt()) { it ->
+                                                    send("请输入第 ${it + 1} 节课的时间${if (it == 0) "\n例如：8:10-8:55\n注意：不要在中间加空格，小时是24小时制！" else ""}")
+                                                    timetable.add(judge(tryLimit = 5, timeoutLimit = 30000L) { res ->
+                                                        TIME_PERIOD_EXPRESSION.matcher(res).find()
+                                                    }.replace("：", ":").split("-").let {
+                                                        it[0] to it[1]
+                                                    })
+                                                }
+                                                RequestHandlerService.sendRequest(Request.SyncSchoolTimetableRequest(sender.id, timetable, forceUpdate = true))
                                             }
                                         }
                                     }
@@ -181,7 +194,6 @@ object BotEventRouteService : AbstractPluginManagedService() {
                                 RequestHandlerService.sendRequest(Request.ChangeUserPasswordRequest(sender.id, it[0]))
                             }
                         } else sender.sendMessage("你还没有登录超级课表，无法修改密码")
-
                     }
                 }
                 plainText.startsWith("修改提前提醒时间") -> {
