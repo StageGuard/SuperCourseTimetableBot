@@ -374,7 +374,10 @@ object BotEventRouteService : AbstractPluginManagedService() {
         }
     }
 
-    fun sendMessageNonBlock(friendId: Long, msg: String) = launch(coroutineContext) {
-        if(PluginMain.targetBotInstance.isOnline) PluginMain.targetBotInstance.friends[friendId]?.sendMessage(msg)
+    fun sendMessageNonBlock(friendId: Long, msg: String, randomDelayMax: Long = 0L) = launch(coroutineContext) {
+        if(PluginMain.targetBotInstance.isOnline) {
+            delay((Math.random() * randomDelayMax).toLong())
+            PluginMain.targetBotInstance.friends[friendId]?.sendMessage(msg)
+        }
     }
 }

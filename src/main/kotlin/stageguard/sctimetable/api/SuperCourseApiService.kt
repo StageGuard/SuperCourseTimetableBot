@@ -9,7 +9,7 @@
 package stageguard.sctimetable.api
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.*
+import io.ktor.client.engine.okhttp.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.util.*
@@ -46,7 +46,7 @@ object SuperCourseApiService {
     private const val PHONE_VERSION = "30" // Android R
     private const val PHONE_MODEL = "vince" // XiaoMi Redmi 5 Plus
 
-    private val client = HttpClient(CIO)
+    private val client = HttpClient(OkHttp)
 
     private val jSessionIdRegExp = Pattern.compile("JSESSIONID=([0-9A-F]+-[a-z1-9]+);")
     private val serverIdRegexp = Pattern.compile("SERVERID=([0-9a-f|]+);")

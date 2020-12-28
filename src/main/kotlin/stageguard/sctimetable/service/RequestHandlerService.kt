@@ -17,6 +17,7 @@ import org.jetbrains.exposed.sql.insert
 import stageguard.sctimetable.AbstractPluginManagedService
 import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.PluginData
+import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.api.LoginCookieData
 import stageguard.sctimetable.api.LoginInfoData
 import stageguard.sctimetable.api.SuperCourseApiService
@@ -211,10 +212,10 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                 ScheduleListenerService.onChangeSchoolTimetable(user.first().schoolId)
                                 info("Sync timetable from user custom list for ${request.qq}'s school successfully, forceUpdate=${request.forceUpdate}.")
                                 BotEventRouteService.sendMessageNonBlock(request.qq, "已修正学校时间表，将影响学校的其他用户。")
-                                User.all().forEach {
-
-                                }
                                 //提醒这个学校的其他人时间表已被手动修改
+                                User.all().forEach {
+                                    if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校时间表已经被同校用户 ${request.qq} 修改，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
+                                }
                             }
                         } else {
                             warning("Deny to sync school timetable for ${request.qq}'s school, forceUpdate=${request.forceUpdate}.")
@@ -239,7 +240,9 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             ScheduleListenerService.onChangeSchoolWeekPeriod(schoolTimetable.first().schoolId)
                             info("Sync school week period for user ${request.qq}'s school successfully, currentWeek=${request.currentWeek}.")
                             BotEventRouteService.sendMessageNonBlock(request.qq, "成功修改当前周数为第 ${request.currentWeek} 周。")
-                            //通知其他用户已被修改
+                            User.all().forEach {
+                                if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校的当前周数已经被同校用户 ${request.qq} 修改，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
+                            }
                         } else {
                             error("Failed to sync school week period for user ${request.qq}'s school, reason: School doesn't exist.")
                             BotEventRouteService.sendMessageNonBlock(request.qq, "无法修改当前周数，该学校不存在！\n如果你已经登录，请删除你的信息并重新登录。")
