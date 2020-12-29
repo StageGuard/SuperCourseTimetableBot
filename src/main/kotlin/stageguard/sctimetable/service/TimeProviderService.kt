@@ -9,7 +9,6 @@
 package stageguard.sctimetable.service
 
 import kotlinx.coroutines.*
-import net.mamoe.mirai.utils.info
 import org.quartz.*
 import org.quartz.Job
 import stageguard.sctimetable.AbstractPluginManagedService
@@ -54,43 +53,29 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
     val currentTimeStamp: LocalDate
         get() = LocalDate.now(ZoneId.of("Asia/Shanghai"))
 
-    private val scheduledQuartzJob: MutableList<Pair<JobDetail, Trigger>> = mutableListOf(
-        //Scheduled
-        JobBuilder.newJob(YearUpdater::class.java).apply {
-            withIdentity(JobKey.jobKey("YearUpdaterJob", JOB_GROUP))
+    private val scheduledQuartzJob: List<Pair<JobDetail, Trigger>> = listOf(
+        YearUpdater::class.java to "10 0 0 1 1 ? *",
+        SemesterUpdater::class.java to "10 0 0 15 2,8 ? *",
+        SchoolWeekPeriodUpdater::class.java to "10 0 0 ? * 2 *"
+    ).map {
+        JobBuilder.newJob(it.first).apply {
+            withIdentity(JobKey.jobKey("${it.first.name.split(".").last()}Job", JOB_GROUP))
         }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity(TriggerKey.triggerKey("YearUpdaterTrigger", JOB_GROUP))
-            withSchedule(CronScheduleBuilder.cronSchedule("10 0 0 1 1 ? *"))
+            withIdentity(TriggerKey.triggerKey("${it.first.name.split(".").last()}Trigger", JOB_GROUP))
+            withSchedule(CronScheduleBuilder.cronSchedule(it.second))
             startNow()
-        }.build(),
-        JobBuilder.newJob(SemesterUpdater::class.java).apply {
-            withIdentity(JobKey.jobKey("SemesterUpdaterJob", JOB_GROUP))
-        }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity(TriggerKey.triggerKey("SemesterUpdaterTrigger", JOB_GROUP))
-            withSchedule(CronScheduleBuilder.cronSchedule("10 0 0 15 2,8 ? *"))
-            startNow()
-        }.build(),
-        JobBuilder.newJob(SchoolWeekPeriodUpdater::class.java).apply {
-            withIdentity(JobKey.jobKey("SchoolWeekPeriodUpdaterJob", JOB_GROUP))
-        }.build() to TriggerBuilder.newTrigger().apply {
-            withIdentity(TriggerKey.triggerKey("SchoolWeekPeriodUpdaterTrigger", JOB_GROUP))
-            withSchedule(CronScheduleBuilder.cronSchedule("10 0 0 ? * 2 *"))
-            startNow()
-        }.build(),
-        //immediate start once
-        JobBuilder.newJob(YearUpdater::class.java).build() to TriggerBuilder.newTrigger().startNow().build(),
-        JobBuilder.newJob(SemesterUpdater::class.java).build() to TriggerBuilder.newTrigger().startNow().build(),
-        JobBuilder.newJob(SchoolWeekPeriodUpdater::class.java).build() to TriggerBuilder.newTrigger().startNow().build(),
-    )
+        }.build()
+    }
 
 
     override suspend fun main() {
         PluginMain.quartzScheduler.apply {
             scheduledQuartzJob.forEach { scheduleJob(it.first, it.second) }
         }.start()
+        YearUpdater().execute(null)
+        SemesterUpdater().execute(null)
+        SchoolWeekPeriodUpdater().execute(null)
         info("TimeProviderServices(${scheduledQuartzJob.joinToString(", ") { it.first.key.name }}) have started.")
-        //unlimited job, kotlin still has no scheduler framework like quartz
-        //awaitCancellation()
     }
 
     fun immediateUpdateSchoolWeekPeriod() {
