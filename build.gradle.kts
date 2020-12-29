@@ -5,8 +5,8 @@ plugins {
     id("net.mamoe.mirai-console") version "2.0-M2"
 }
 
-group = "13554"
-version = "0.1.1"
+group = "KonnyakuCamp"
+version = "0.2.1"
 
 repositories {
     mavenLocal()
