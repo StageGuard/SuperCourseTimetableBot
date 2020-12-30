@@ -12,13 +12,11 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.event.GlobalEventChannel
-import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotOnlineEvent
-import net.mamoe.mirai.event.subscribe
 import net.mamoe.mirai.utils.info
 import org.quartz.Scheduler
 import org.quartz.impl.StdSchedulerFactory
-import stageguard.sctimetable.api.SuperCourseApiService
+import stageguard.sctimetable.api.edu_system.`super`.SuperCourseApiService
 import stageguard.sctimetable.database.Database
 import stageguard.sctimetable.service.*
 

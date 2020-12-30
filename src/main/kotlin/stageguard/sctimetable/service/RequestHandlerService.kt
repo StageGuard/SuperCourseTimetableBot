@@ -17,10 +17,9 @@ import org.jetbrains.exposed.sql.insert
 import stageguard.sctimetable.AbstractPluginManagedService
 import stageguard.sctimetable.PluginConfig
 import stageguard.sctimetable.PluginData
-import stageguard.sctimetable.PluginMain
-import stageguard.sctimetable.api.LoginCookieData
-import stageguard.sctimetable.api.LoginInfoData
-import stageguard.sctimetable.api.SuperCourseApiService
+import stageguard.sctimetable.api.edu_system.`super`.LoginCookieData
+import stageguard.sctimetable.api.edu_system.`super`.LoginInfoData
+import stageguard.sctimetable.api.edu_system.`super`.SuperCourseApiService
 import stageguard.sctimetable.service.RequestHandlerService.handlerChannel
 import stageguard.sctimetable.database.Database
 import stageguard.sctimetable.database.model.*

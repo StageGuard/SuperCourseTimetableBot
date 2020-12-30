@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.api
+package stageguard.sctimetable.api.edu_system.`super`
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.*
