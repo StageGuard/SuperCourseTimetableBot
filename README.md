@@ -2,6 +2,8 @@
 
 一个基于 [mirai](https://github.com/mamoe/mirai/) 和 [mirai-console](https://github.com/mamoe/mirai-console) 的 超级课程表 提醒 mirai-console 插件。
 
+![Gradle CI Status](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/workflows/Gradle%20CI/badge.svg)
+
 ## 特性
 
 <img align="right" src="static/screenshot1.png" height="300">
