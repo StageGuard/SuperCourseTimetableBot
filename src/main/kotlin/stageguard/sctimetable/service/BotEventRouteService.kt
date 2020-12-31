@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 KonnyakuCamp.
+ * Copyright 2020-2021 KonnyakuCamp.
  *
  *  此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
  *  Use of this source code is governed by the GNU AGPLv3 license that can be found through the following link.
@@ -14,11 +14,6 @@ import kotlinx.coroutines.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.event.*
-import net.mamoe.mirai.event.events.NewFriendRequestEvent
-import net.mamoe.mirai.event.events.FriendMessageEvent
-import net.mamoe.mirai.message.data.Message
-import net.mamoe.mirai.message.data.PlainText
-import net.mamoe.mirai.message.data.firstIsInstanceOrNull
 import net.mamoe.mirai.message.nextMessage
 import stageguard.sctimetable.AbstractPluginManagedService
 import stageguard.sctimetable.PluginConfig
@@ -34,6 +29,9 @@ import stageguard.sctimetable.utils.Either
 import java.lang.Exception
 import java.lang.management.ManagementFactory
 import com.sun.management.OperatingSystemMXBean
+import net.mamoe.mirai.event.events.*
+import net.mamoe.mirai.message.data.*
+import java.util.*
 import java.util.regex.Pattern
 
 object BotEventRouteService : AbstractPluginManagedService() {
@@ -249,9 +247,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     }
                 }
             }
-        }
-            ListeningStatus.LISTENING
-        }
+        } }
         verbose("start listening FriendMessageEvent and NewFriendRequestEvent")
     }
 

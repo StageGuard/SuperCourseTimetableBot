@@ -146,7 +146,7 @@ SuperCourseTimetableBot 并未经过长期运行测试，对于其 `Quartz` 任�
 
 ```
 SuperCourseTimetableBot
-Copyright (C) 2020 The KonnyakuCamp Team
+Copyright (C) 2020-2021 The KonnyakuCamp Team
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
