@@ -180,7 +180,7 @@ data class __InternalTermBO(
 
 @Serializable
 data class __InternalCourseTimeList(
-    val courseTimeBO: List<__InternalCourseTimeBO>
+    val courseTimeBO: List<__InternalCourseTimeBO> = listOf()
 )
 
 @Serializable
