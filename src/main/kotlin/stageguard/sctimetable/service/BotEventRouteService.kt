@@ -24,7 +24,6 @@ import stageguard.sctimetable.database.model.User
 import stageguard.sctimetable.database.model.Users
 import java.lang.management.ManagementFactory
 import com.sun.management.OperatingSystemMXBean
-import net.mamoe.mirai.console.command.CommandExecuteResult
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.MiraiExperimentalApi
@@ -67,7 +66,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     subject.sendMessage("太长时间未输入，请重新登录")
                 } }
             }
-            startsWith("修改时间表") { Database.query {
+            startsWith("修改时间表") { Database.suspendQuery {
                 val thisUser = User.find { Users.qq eq subject.id }
                 val schoolTimetable = SchoolTimetable.find { SchoolTimetables.schoolId eq thisUser.first().schoolId }.first()
                 interactiveConversation(this@BotEventRouteService, eachTimeLimit = 30000L, eachTryLimit = 5) {
@@ -142,7 +141,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     })
                 } else subject.sendMessage("你还没有登录超级课表，无法查看今天课程")
             } }
-            startsWith("删除账户") {
+            finding(Regex("^删除(用户|账户|账号)")) {
                 interactiveConversation(this@BotEventRouteService, eachTimeLimit = 10000L) {
                     send("确认要删除你的所有信息吗，包括用户信息，你的课程信息？\n删除后将不再为你发送课程提醒。\n发送\"确认\"以删除。")
                     select {

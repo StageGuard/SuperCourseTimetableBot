@@ -36,7 +36,7 @@ import kotlin.contracts.contract
  */
 class InteractiveConversationBuilder(
     private val eventContext: MessageEvent,
-    private val coroutineScope: CoroutineScope,
+    private val coroutineScope: CoroutineScope?,
     private val timeoutLimitation: Long,
     private val tryCountLimitation: Int
 ) {
@@ -244,6 +244,7 @@ sealed class QuitConversationExceptions : Exception() {
     class TimeoutException : QuitConversationExceptions()
 }
 
+typealias EIQ = Either<InteractiveConversationBuilder, QuitConversationExceptions>
 /**
  * 交互式对话的创建器
  *
@@ -257,8 +258,7 @@ sealed class QuitConversationExceptions : Exception() {
  *
  * ```
  *
- * @param scope 协程作用域，默认为全局作用域 [GlobalScope]。
- * 建议制定为*插件作用域*或自定义协程作用域。
+ * @param scope 协程作用域，默认为 `null` 即阻塞当前协程。
  * @param eachTimeLimit 每一次捕获消息的最大等待时间，默认为 `-1L` 即无限等待。
  * 若超过了这个时间未捕获到适合的消息，则在 [exception] 中抛出 [QuitConversationExceptions.IllegalInputException]。
  * @param eachTryLimit 每一次捕获消息时允许尝试的最大次数。
@@ -271,29 +271,29 @@ sealed class QuitConversationExceptions : Exception() {
  * @see finish
  * @see exception
  */
-inline fun <T : MessageEvent> T.interactiveConversation(
-    scope: CoroutineScope = GlobalScope,
+suspend fun <T : MessageEvent> T.interactiveConversation(
+    scope: CoroutineScope? = null,
     eachTimeLimit: Long = -1L,
     eachTryLimit: Int = -1,
-    crossinline block: suspend InteractiveConversationBuilder.() -> Unit
-): Pair<CoroutineScope, Deferred<Either<InteractiveConversationBuilder, QuitConversationExceptions>>> = scope to scope.async (
-    scope.coroutineContext
-) {
-    try {
+    block: suspend InteractiveConversationBuilder.() -> Unit
+): Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>> {
+    suspend fun executeICB() = try {
         InteractiveConversationBuilder(
             eventContext = this@interactiveConversation,
             coroutineScope = scope,
             tryCountLimitation = eachTryLimit,
             timeoutLimitation = eachTimeLimit
         ).also { block(it) }.let { Either.Left(it) }
-    } catch (ex: Exception) {
-        when(ex) {
-            is TimeoutCancellationException -> Either.Right(QuitConversationExceptions.TimeoutException())
-            else -> Either.Right(ex as QuitConversationExceptions)
-        }
+    } catch (ex: Exception) { when(ex) {
+        is TimeoutCancellationException -> Either.Right(QuitConversationExceptions.TimeoutException())
+        else -> Either.Right(ex as QuitConversationExceptions)
+    } }
+    return if(scope == null) {
+        null to Either.Left(executeICB())
+    } else {
+        scope to Either.Right(scope.async(scope.coroutineContext) { executeICB() })
     }
 }
-
 /**
  * 会话非正常退出时调用这个函数
  * 处理方式：
@@ -306,11 +306,19 @@ inline fun <T : MessageEvent> T.interactiveConversation(
  * ```
  * 不必为 `when` 添加 `else` 分支，因为 [QuitConversationExceptions] 是一个 `sealed class`
  */
-fun Pair<CoroutineScope, Deferred<Either<InteractiveConversationBuilder, QuitConversationExceptions>>>.exception(
+suspend fun Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>>.exception(
     failed: suspend (QuitConversationExceptions) -> Unit = {  }
-) : Pair<CoroutineScope, Deferred<Either<InteractiveConversationBuilder, QuitConversationExceptions>>> {
-    first.launch(first.coroutineContext) {
-        when(val icBuilder = this@exception.second.await()) { is Either.Right -> failed(icBuilder.value) }
+) : Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>> {
+    if(first != null) {
+        first!!.launch(first!!.coroutineContext) {
+            when(val icBuilder = (second as Either.Right).value.await()) {
+                is Either.Right -> failed(icBuilder.value)
+            }
+        }
+    } else {
+        when(val icBuilder = (second as Either.Left).value) {
+            is Either.Right -> failed(icBuilder.value)
+        }
     }
     return this
 }
@@ -348,11 +356,19 @@ fun Pair<CoroutineScope, Deferred<Either<InteractiveConversationBuilder, QuitCon
  * 注意：[cast] 会忽略 `Map` 中的 `null` 检查！
  *
  */
-fun Pair<CoroutineScope, Deferred<Either<InteractiveConversationBuilder, QuitConversationExceptions>>>.finish(
+suspend fun Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>>.finish(
     success: suspend (Map<String, Any>) -> Unit = {  }
-) : Pair<CoroutineScope, Deferred<Either<InteractiveConversationBuilder, QuitConversationExceptions>>> {
-    first.launch(first.coroutineContext) {
-        when(val icBuilder = this@finish.second.await()) { is Either.Left -> success(icBuilder.value.capturedList.toMap()) }
+) : Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>> {
+    if(first != null) {
+        first!!.launch(first!!.coroutineContext) {
+            when(val icBuilder = (second as Either.Right).value.await()) {
+                is Either.Left -> success(icBuilder.value.capturedList)
+            }
+        }
+    } else {
+        when(val icBuilder = (second as Either.Left).value) {
+            is Either.Left -> success(icBuilder.value.capturedList)
+        }
     }
     return this
 }
