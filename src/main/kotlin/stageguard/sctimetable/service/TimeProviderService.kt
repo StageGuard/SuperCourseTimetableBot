@@ -48,7 +48,7 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
     var currentWeekPeriod: MutableMap<Int, Int> = mutableMapOf()
 
     val currentSemesterBeginYear: Int
-        get() = if(currentSemester == 2) currentYear - 1 else currentYear
+        get() = if(LocalDate.now(ZoneId.of("Asia/Shanghai")).monthValue in 1..8) currentYear - 1 else currentYear
 
     val currentTimeStamp: LocalDate
         get() = LocalDate.now(ZoneId.of("Asia/Shanghai"))
