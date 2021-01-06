@@ -56,9 +56,9 @@ object BotEventRouteService : AbstractPluginManagedService() {
             finding(Regex("^登录超级(课程表|课表)")) {
                 interactiveConversation(this@BotEventRouteService, eachTimeLimit = 30000L) {
                     send("请输入超级课表账号")
-                    receive(key = "account")
+                    receivePlain(key = "account")
                     send("请输入超级课表密码\n注意：若用手机验证码登录的超级课表，请先在超级课表app设置账号密码")
-                    receive(key = "password")
+                    receivePlain(key = "password")
                 }.finish {
                     subject.sendMessage("正在登录。。。")
                     RequestHandlerService.sendRequest(Request.LoginRequest(subject.id, LoginInfoData(it["account"].cast(), it["password"].cast())))
@@ -82,29 +82,31 @@ object BotEventRouteService : AbstractPluginManagedService() {
                                 要修改当前周数还是时间表？
                                 发送 "周数" 或 "时间表" 决定
                             """.trimIndent())
-                            select({ it == "周数" || it == "时间表" }, key = "selection") {
+                            select {
                                 "周数" {
                                     send("正在修改当前周数\n请输入一个数字表示当前周数")
-                                    receive(key = "weekPeriod") { it.toInt() > 0 }
+                                    receivePlain(key = "weekPeriod") { it.toInt() > 0 }
+                                    collect("selection", 1)
                                 }
                                 "时间表" {
                                     send("正在修改当前时间表\n请输入一个数字表示当前学校一天有几节课\n默认为 8 节课")
                                     val timetable = mutableListOf<Pair<String, String>>()
-                                    repeat(judge { it.toInt() > 2 }.toInt()) {
+                                    repeat(receivePlain { it.toInt() > 2 }.toInt()) {
                                         send("请输入第 ${it + 1} 节课的时间${if (it == 0) "\n例如：8:10-8:55\n注意：不要在中间加空格，小时是24小时制！" else ""}")
-                                        timetable.add(judge { res ->
+                                        timetable.add(receivePlain { res ->
                                             TIME_PERIOD_EXPRESSION.matcher(res).find()
                                         }.replace("：", ":").split("-").let { ls -> ls[0] to ls[1] })
                                     }
+                                    collect("selection", 2)
                                     collect("timetable", timetable)
                                 }
                             }
                         }
                         default { finish() }
                     }
-                }.finish { when(it["selection"].cast<String>()) {
-                    "周数" -> RequestHandlerService.sendRequest(Request.SyncSchoolWeekPeriodRequest(subject.id, it["weekPeriod"].cast<String>().toInt()))
-                    "时间表" -> RequestHandlerService.sendRequest(Request.SyncSchoolTimetableRequest(subject.id, it["timetable"].cast(), forceUpdate = true))
+                }.finish { when(it["selection"].cast<Int>()) {
+                    1 -> RequestHandlerService.sendRequest(Request.SyncSchoolWeekPeriodRequest(subject.id, it["weekPeriod"].cast<String>().toInt()))
+                    2 -> RequestHandlerService.sendRequest(Request.SyncSchoolTimetableRequest(subject.id, it["timetable"].cast(), forceUpdate = true))
                 } }.exception { when(it) {
                     is QuitConversationExceptions.IllegalInputException -> subject.sendMessage("输入格式有误次数，过多，请重新发送\"修改时间表\"")
                     is QuitConversationExceptions.TimeoutException -> subject.sendMessage("长时间未输入，请重新发送\"修改时间表\"")
@@ -156,7 +158,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                 if(!User.find { Users.qq eq subject.id }.empty()) {
                     interactiveConversation(this@BotEventRouteService, eachTimeLimit = 30000L) {
                         send("请输入新的密码\n注意：只会存储在数据库中，不会验证新密码的正确性。")
-                        receive(key = "password")
+                        receivePlain(key = "password")
                     }.finish {
                         RequestHandlerService.sendRequest(Request.ChangeUserPasswordRequest(subject.id, it["password"].cast()))
                     }.exception {
@@ -171,7 +173,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                         请输入一个数字代表你想要修改的时间。
                         当前为提前 ${PluginData.advancedTipOffset[subject.id] ?: PluginConfig.advancedTipTime} 分钟提醒。
                     """.trimIndent())
-                    receive(key = "advTipTime", tryLimit = 3) { it.toInt() > 0 }
+                    receivePlain(key = "advTipTime", tryLimit = 3) { it.toInt() > 0 }
                 }.finish {
                     PluginData.advancedTipOffset[subject.id] = it["advTipTime"].cast<String>().toInt()
                     ScheduleListenerService.restartUserNotification(subject.id)
