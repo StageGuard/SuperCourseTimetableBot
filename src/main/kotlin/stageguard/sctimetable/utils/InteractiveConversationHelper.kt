@@ -14,9 +14,7 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.console.util.cast
 import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.event.events.MessageEvent
-import net.mamoe.mirai.message.data.Message
-import net.mamoe.mirai.message.data.PlainText
-import net.mamoe.mirai.message.data.firstIsInstanceOrNull
+import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.nextMessage
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
@@ -26,10 +24,10 @@ import kotlin.contracts.contract
  *
  * 使用 [interactiveConversation] 创建一个交互式对话
  *
- * 限定 [judge], [receive], [select] 和 [collect] 在这个对象中使用。
+ * 限定 [receivePlain], [receive], [select] 和 [collect] 在这个对象中使用。
  *
  * @see interactiveConversation
- * @see judge
+ * @see receivePlain
  * @see receive
  * @see select
  * @see collect
@@ -38,20 +36,30 @@ class InteractiveConversationBuilder(
     private val eventContext: MessageEvent,
     private val coroutineScope: CoroutineScope?,
     private val timeoutLimitation: Long,
-    private val tryCountLimitation: Int
+    private val tryCountLimitation: Int,
+    val conversationBlock: suspend InteractiveConversationBuilder.() -> Unit
 ) {
     private val target: Contact = eventContext.subject
     private val bot: Bot = eventContext.bot
     val capturedList: MutableMap<String, Any> = mutableMapOf()
+
+    private val UNLIMITED_REPEAT: Boolean = tryCountLimitation == -1
+    private val UNLIMITED_TIME: Boolean = timeoutLimitation == -1L
 
     /**
      * 发送一条文本消息
      */
     suspend fun send(msg: String) { if (bot.isOnline) target.sendMessage(msg) }
     /**
-     * 发送一条消息
+     * 发送一条消息(消息链)
      */
     suspend fun send(msg: Message) { if (bot.isOnline) target.sendMessage(msg) }
+    /**
+     * 发送一条消息(消息链拓展)
+     */
+    suspend fun send(block: MessageChainBuilder.() -> Unit) {
+        send(buildMessageChain { block(this) })
+    }
 
     /**
      * 将任何值存入捕获列表。
@@ -75,85 +83,103 @@ class InteractiveConversationBuilder(
     }
 
     /**
-     * 同 [receive] 阻塞对话过程来监听下一条消息，但不存入捕获列表。
+     * 阻塞对话过程来监听下一条消息包含指定类型的消息。
      *
-     * 通常用于判断消息。
+     * [checkBlock] 会对消息链中每一个这个类型的消息进行判断。
      *
-     * @return 返回监听到的消息。
-     * @see receive
-     */
-    suspend fun judge(
-        tryLimit: Int = tryCountLimitation,
-        timeoutLimit: Long = timeoutLimitation,
-        checkBlock: ((String) -> Boolean)? = null
-    ) : String = receive(tryLimit, timeoutLimit, null, checkBlock)
-
-    /**
-     * 阻塞对话过程来监听下一条消息，并存储到捕获列表中。
-     *
-     * [checkBlock] 不为 `null`时会对消息进行判断，判断为 `false` 或出现错误时会反复询问，直到符合要求。
+     * 当消息中不含有这个类型的消息或其中一个 [checkBlock] 为 `false` 时时会反复询问。
      *
      * 使用：
      * ```
      * interactiveConversation {
-     *    //不进行判断，直接存储
-     *    receive(key = "foo")
-     *    //正则匹配
-     *    receive(key = "bar") {
-     *      Pattern.compile("...").matcher(it).find()
+     *    //当消息中有为 Image 时存储。
+     *    receive<Image>(key = "foo")
+     *    //当消息中有 At 并且其中一个 At 的对象为 xxx 时存储。
+     *    receive<At>(key = "bar") {
+     *      it.target = xxx
      *    }
-     *    ///转换为 Int 进行判断。
-     *    receive(key = "baz") { it.toInt() > 0 }
      * }
      * ```
      *
      * @param tryLimit 设置尝试最大次数。会覆盖在 [interactiveConversation] 中设置的 `eachTryLimit`。
      * @param timeoutLimit 设置每次监听的最大时长限制，会覆盖在 [interactiveConversation] 中设置的 `eachTimeLimit`。
-     * @param key 键名称
+     * @param key 键名称，不为 `null` 时会存储进捕获列表。
      *
-     * @return 返回监听到的消息。
+     * @return 返回这个类型的消息的列表 [List]。
      *
-     * @see [judge]
+     * @see [select]
+     * @see [receivePlain]
+     */
+    suspend inline fun <reified SM : SingleMessage> receive(
+        tryLimit: Int = -2,
+        timeoutLimit: Long = -2L,
+        key: String? = null,
+        noinline checkBlock: ((SM) -> Boolean) = { true }
+    ): List<SM> = recvImpl(tryLimit, timeoutLimit, { chain ->
+        chain.any { it is SM } && run {
+            var satisfied = false
+            chain.filterIsInstance<SM>().forEach { satisfied = checkBlock(it) }
+            satisfied
+        }
+    }, { chain -> chain.filterIsInstance<SM>() }).also { if(key != null) capturedList[key] = it }
+
+    /**
+     * 阻塞对话过程来监听下一条消息纯文本。
+     *
+     * [checkBlock] 会对整个文本消息进行判断。
+     * 当不为纯文本消息或其中一个 [checkBlock] 判断为 `false` 或出现错误时会反复询问，直到符合要求。
+     *
+     * 使用：
+     * ```
+     * interactiveConversation {
+     *    //只判断是否为纯文本消息
+     *    receivePlain(key = "foo")
+     *    //判断是否为文本消息且判断是否符合要求
+     *    receivePlain(key = "bar") {
+     *      Pattern.compile("...").matcher(it).find()
+     *    }
+     *    ///转换为 Int 进行判断。
+     *    receivePlain(key = "baz") { it.toInt() > 0 }
+     * }
+     * ```
+     *
+     * @param tryLimit 设置尝试最大次数。会覆盖在 [interactiveConversation] 中设置的 `eachTryLimit`。
+     * @param timeoutLimit 设置每次监听的最大时长限制，会覆盖在 [interactiveConversation] 中设置的 `eachTimeLimit`。
+     * @param key 键名称，不为 `null` 时会存储进捕获列表。
+     *
+     * @return 返回监听到的消息的文本。
+     *
+     * @see [receive]
      * @see [select]
      */
-    suspend fun receive(
+    suspend inline fun receivePlain(
+        tryLimit: Int = -2,
+        timeoutLimit: Long = -2L,
+        key: String? = null,
+        noinline checkBlock: ((String) -> Boolean) = { true }
+    ): String = recvImpl(tryLimit, timeoutLimit, {
+        it.subList(1, it.size).let { single -> single.size == 1 && single[0] is PlainText && checkBlock(single[0].content) }
+    }, { it.contentToString() }).also { if(key != null) capturedList[key] = it }
+
+    /**
+     * [receive] 和 [receivePlain] 的具体实现
+     */
+    suspend fun <R> recvImpl(
         tryLimit: Int = tryCountLimitation,
         timeoutLimit: Long = timeoutLimitation,
-        key: String? = null,
-        checkBlock: ((String) -> Boolean)? = null,
-    ): String {
-        if(checkBlock == null) {
-            (eventContext.nextMessage(timeoutLimit).firstIsInstanceOrNull<PlainText>()?.content ?: "").also {
-                if(key != null) capturedList[key] = it
-                return it
+        checkBlock: (MessageChain) -> Boolean,
+        mapBlock: (MessageChain) -> R
+    ): R {
+        val calculatedTryLimit = if(tryLimit == -2) (if(UNLIMITED_REPEAT) Int.MAX_VALUE else tryCountLimitation) else (if(tryLimit == -1) Int.MAX_VALUE else tryLimit)
+        val calculatedTimeLimit = if(timeoutLimit == -2L) (if(UNLIMITED_TIME) Long.MAX_VALUE else timeoutLimitation) else (if(timeoutLimit == -1L) Long.MAX_VALUE else timeoutLimit)
+        repeat(calculatedTryLimit) {
+            runCatching {
+                val nextMsg = eventContext.nextMessage(calculatedTimeLimit)
+                if(checkBlock(nextMsg)) return mapBlock(nextMsg)
             }
-        } else {
-            if(tryLimit == -1) {
-                while (true) {
-                    val plainText = eventContext.nextMessage(timeoutLimit).firstIsInstanceOrNull<PlainText>()?.content ?: ""
-                    kotlin.runCatching {
-                        if(checkBlock(plainText)) {
-                            if(key != null) capturedList[key] = plainText
-                            return plainText
-                        }
-                    }
-                    send("输入不符合要求，请重新输入！")
-                }
-            } else {
-                repeat(tryLimit) {
-                    val plainText = eventContext.nextMessage(timeoutLimit).firstIsInstanceOrNull<PlainText>()?.content ?: ""
-                    kotlin.runCatching {
-                        if(checkBlock(plainText)) {
-                            if(key != null) capturedList[key] = plainText
-                            return plainText
-                        }
-                    }
-                    if(it != tryLimit - 1) send("输入不符合要求，请重新输入！")
-                }
-                //会话直接结束
-                throw QuitConversationExceptions.IllegalInputException()
-            }
+            send("mismatched message.")
         }
+        throw QuitConversationExceptions.IllegalInputException()
     }
 
     /**
@@ -183,29 +209,78 @@ class InteractiveConversationBuilder(
      *    }
      * }
      * ```
-     * @param key 当不为 `null` 时将监听到的消息存储进捕获列表。
-     * @see receive
+     * @see SelectionLambdaExpression.invoke
+     * @see SelectionLambdaExpression.containRun
+     * @see SelectionLambdaExpression.matchRun
+     * @see SelectionLambdaExpression.has
      */
     suspend fun select(
-        checkBlock: ((String) -> Boolean)? = null,
-        tryLimit: Int = tryCountLimitation,
         timeoutLimit: Long = timeoutLimitation,
-        key: String? = null,
-        runBlock: suspend SelectionLambdaExpression.(String) -> Unit
-    ) = SelectionLambdaExpression(receive(tryLimit, timeoutLimit, key, checkBlock))(runBlock)
+        runBlock: suspend SelectionLambdaExpression.(MessageChain) -> Unit
+    ) = SelectionLambdaExpression(recvImpl(tryCountLimitation, timeoutLimit, { true }) { it })(runBlock)
 
-    class SelectionLambdaExpression (private val content: String) {
+    @Suppress("DuplicatedCode")
+    class SelectionLambdaExpression(
+        private val chain: MessageChain
+    ) {
         private var matches = false
 
         /**
-         * 在 [select] 中判断消息为这个字符串时执行
+         * 只有文本消息且消息为这个字符串时执行
          */
-        suspend operator fun String.invoke(caseLambda: suspend () -> Unit) {
-            if(content == this) {
-                matches = true
-                caseLambda()
-            }
+        suspend inline operator fun String.invoke(crossinline caseLambda: suspend (String) -> Unit) {
+            when(val content = contentImpl({
+                it.subList(1, it.size).let { single -> single.size == 1 && single[0] is PlainText && single[0].content == this }
+            }) { it.contentToString() }) { is Either.Left -> caseLambda(content.value) }
         }
+
+        /**
+         * 只有文本消息且消息包含这个字符串时执行
+         */
+        suspend inline infix fun String.containRun(crossinline caseLambda: suspend (String) -> Unit) {
+            when(val content = contentImpl({
+                it.subList(1, it.size).let { single -> single.size == 1 && single[0] is PlainText && single[0].content.contains(this) }
+            }) { it.contentToString() }) { is Either.Left -> {
+                caseLambda(content.value)
+            } }
+        }
+
+        /**
+         * 只有文本消息且消息符合正则表达式时执行
+         *
+         */
+        suspend inline infix fun Regex.matchRun(crossinline caseLambda: suspend (String) -> Unit) {
+            when(val content = contentImpl({
+                it.subList(1, it.size).let { single -> single.size == 1 && single[0] is PlainText && matches(single[0].content) }
+            }) { it.contentToString() }) { is Either.Left -> caseLambda(content.value) }
+        }
+
+        /**
+         * 包含指定类型消息且满足条件时执行，lambda 参数为第一个满足条件的该类型消息
+         */
+        suspend inline fun <reified SM : SingleMessage> has(
+            crossinline checkBlock: (SM) -> Boolean = { true },
+            crossinline caseLambda: suspend (SM) -> Unit
+        ) {
+            when(val content = contentImpl({
+                it.any { sm -> sm is SM } && run {
+                    var satisfied = false
+                    it.filterIsInstance<SM>().forEach { sm -> satisfied = checkBlock(sm) }
+                    satisfied
+                }
+            }) { it.filterIsInstance<SM>().first(checkBlock) }) { is Either.Left -> caseLambda(content.value) }
+        }
+
+        /**
+         * 条件的具体实现
+         */
+        fun <R> contentImpl(
+            condition: (MessageChain) -> Boolean,
+            mapBlock: (MessageChain) -> R
+        ) : Either<R, Unit> = if(condition(chain)) {
+            matches = true
+            Either.Left(mapBlock(chain))
+        } else Either.Right(Unit)
 
         /**
          * 当任何字符都不匹配时执行。
@@ -215,21 +290,21 @@ class InteractiveConversationBuilder(
         suspend fun default(caseLambda: suspend () -> Unit) {
             if(!matches) caseLambda()
         }
-        //For execute
-        suspend operator fun invoke(runBlock: suspend SelectionLambdaExpression.(String) -> Unit) = runBlock(content)
-    }
+        fun finish() { throw QuitConversationExceptions.AdvancedQuitException() }
 
-    /**
-     * 提前结束会话。
-     * 并在 [exception] 中抛出 [QuitConversationExceptions.AdvancedQuitException]
-     */
+        //For execute
+        suspend operator fun invoke(runBlock: suspend SelectionLambdaExpression.(MessageChain) -> Unit) = runBlock(chain)
+     }
     fun finish() { throw QuitConversationExceptions.AdvancedQuitException() }
+
+    suspend operator fun invoke() = conversationBlock()
 }
 
 sealed class QuitConversationExceptions : Exception() {
     /**
      * 提前结束会话时抛出
      * @see InteractiveConversationBuilder.finish
+     * @see InteractiveConversationBuilder.SelectionLambdaExpression.finish
      */
     class AdvancedQuitException : QuitConversationExceptions()
 
@@ -264,7 +339,7 @@ typealias EIQ = Either<InteractiveConversationBuilder, QuitConversationException
  * @param eachTryLimit 每一次捕获消息时允许尝试的最大次数。
  * 若超过了这个次数未捕获到适合的消息，则在 [exception] 中抛出 [QuitConversationExceptions.TimeoutException]。
  * @see InteractiveConversationBuilder.receive
- * @see InteractiveConversationBuilder.judge
+ * @see InteractiveConversationBuilder.receivePlain
  * @see InteractiveConversationBuilder.select
  * @see InteractiveConversationBuilder.collect
  * @see InteractiveConversationBuilder.finish
@@ -282,8 +357,9 @@ suspend fun <T : MessageEvent> T.interactiveConversation(
             eventContext = this@interactiveConversation,
             coroutineScope = scope,
             tryCountLimitation = eachTryLimit,
-            timeoutLimitation = eachTimeLimit
-        ).also { block(it) }.let { Either.Left(it) }
+            timeoutLimitation = eachTimeLimit,
+            conversationBlock = block
+        ).also { it() }.let { Either.Left(it) }
     } catch (ex: Exception) { when(ex) {
         is TimeoutCancellationException -> Either.Right(QuitConversationExceptions.TimeoutException())
         else -> Either.Right(ex as QuitConversationExceptions)
@@ -347,7 +423,7 @@ suspend fun Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>>.exception(
  * ```
  * interactiveConversation {
  *    receive(key = "number1") { it.toInt() }
- *    collect(key = "number2", judge { it.toInt() }.toInt())
+ *    collect(key = "number2", receive { it.toInt() }.toInt())
  * }.finish {
  *    val number1 = it["number1"].cast<String>().toInt()
  *    val number2 = it["number2"].cast<Int>()
