@@ -174,7 +174,9 @@ class InteractiveConversationBuilder(
         val calculatedTimeLimit = if(timeoutLimit == -2L) (if(UNLIMITED_TIME) Long.MAX_VALUE else timeoutLimitation) else (if(timeoutLimit == -1L) Long.MAX_VALUE else timeoutLimit)
         repeat(calculatedTryLimit) {
             val nextMsg = eventContext.nextMessage(calculatedTimeLimit)
-            runCatching { if(checkBlock(nextMsg)) return mapBlock(nextMsg) }
+            runCatching {
+                if(checkBlock(nextMsg)) return mapBlock(nextMsg)
+            }
             send("mismatched message.")
         }
         throw QuitConversationExceptions.IllegalInputException()
