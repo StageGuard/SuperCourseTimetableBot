@@ -173,10 +173,8 @@ class InteractiveConversationBuilder(
         val calculatedTryLimit = if(tryLimit == -2) (if(UNLIMITED_REPEAT) Int.MAX_VALUE else tryCountLimitation) else (if(tryLimit == -1) Int.MAX_VALUE else tryLimit)
         val calculatedTimeLimit = if(timeoutLimit == -2L) (if(UNLIMITED_TIME) Long.MAX_VALUE else timeoutLimitation) else (if(timeoutLimit == -1L) Long.MAX_VALUE else timeoutLimit)
         repeat(calculatedTryLimit) {
-            runCatching {
-                val nextMsg = eventContext.nextMessage(calculatedTimeLimit)
-                if(checkBlock(nextMsg)) return mapBlock(nextMsg)
-            }
+            val nextMsg = eventContext.nextMessage(calculatedTimeLimit)
+            runCatching { if(checkBlock(nextMsg)) return mapBlock(nextMsg) }
             send("mismatched message.")
         }
         throw QuitConversationExceptions.IllegalInputException()
@@ -247,7 +245,6 @@ class InteractiveConversationBuilder(
 
         /**
          * 只有文本消息且消息符合正则表达式时执行
-         *
          */
         suspend inline infix fun Regex.matchRun(crossinline caseLambda: suspend (String) -> Unit) {
             when(val content = contentImpl({
