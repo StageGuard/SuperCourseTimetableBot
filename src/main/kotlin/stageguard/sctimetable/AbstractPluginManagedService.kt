@@ -10,7 +10,6 @@ package stageguard.sctimetable
 
 import kotlinx.coroutines.*
 import net.mamoe.mirai.utils.*
-import net.mamoe.mirai.utils.debug
 import kotlin.coroutines.CoroutineContext
 
 /**
