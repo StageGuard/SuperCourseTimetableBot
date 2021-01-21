@@ -143,9 +143,9 @@ object SuperCourseApiService {
         }.execute {
             val result = it.content.readUTF8Line() ?: "{\"message\":\"Empty response content.\",\"title\":\"\"}"
             try {
-                Either.Left(Json.decodeFromString(result))
+                Either.Left(Json { ignoreUnknownKeys = true }.decodeFromString(result))
             } catch (error: Exception) {
-                Either.Right(Json.decodeFromString(result))
+                Either.Left(Json { ignoreUnknownKeys = true }.decodeFromString(result))
             }
         }
     } catch (ex: Exception) {
