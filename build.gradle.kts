@@ -2,11 +2,11 @@
 plugins {
     kotlin("jvm") version "1.4.20"
     kotlin("plugin.serialization") version "1.4.20"
-    id("net.mamoe.mirai-console") version "2.0-RC"
+    id("net.mamoe.mirai-console") version "2.0.0"
 }
 
 group = "KonnyakuCamp"
-version = "0.3.1"
+version = "0.3.2"
 
 repositories {
     mavenLocal()
