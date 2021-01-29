@@ -212,7 +212,7 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                 info("Sync timetable from user custom list for ${request.qq}'s school successfully, forceUpdate=${request.forceUpdate}.")
                                 BotEventRouteService.sendMessageNonBlock(request.qq, "已修正学校时间表，将影响学校的其他用户。")
                                 //提醒这个学校的其他人时间表已被手动修改
-                                User.all().forEach {
+                                User.find { Users.schoolId eq user.first().schoolId }.forEach {
                                     if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校时间表已经被同校用户 ${request.qq} 修改，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
                                 }
                             }
