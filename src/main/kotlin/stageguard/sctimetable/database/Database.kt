@@ -47,20 +47,13 @@ object Database {
     } else newSuspendedTransaction(context = Dispatchers.IO, db = db) { block(this) }
 
     fun connect() {
-        try {
-            db = Database.connect(hikariDataSourceProvider())
-            connectionStatus = ConnectionStatus.CONNECTED
-            PluginMain.logger.info { "Database ${PluginConfig.database.table} is connected." }
-            initDatabase()
-        } catch (ex: Exception) {
-            when(ex) {
-                //当配置文件的配置不符合要求时throw
-                is InvalidDatabaseConfigException -> {
-                    throw ex
-                }
-            }
-        }
+        db = Database.connect(hikariDataSourceProvider())
+        connectionStatus = ConnectionStatus.CONNECTED
+        PluginMain.logger.info { "Database ${PluginConfig.database.table} is connected." }
+        initDatabase()
     }
+
+    fun isConnected() = connectionStatus == ConnectionStatus.CONNECTED
 
     private fun initDatabase() { query {
         it.addLogger(object : SqlLogger {

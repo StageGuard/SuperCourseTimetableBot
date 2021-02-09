@@ -14,6 +14,7 @@ import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.event.GlobalEventChannel
 import net.mamoe.mirai.event.events.BotOnlineEvent
 import net.mamoe.mirai.utils.MiraiExperimentalApi
+import net.mamoe.mirai.utils.error
 import net.mamoe.mirai.utils.info
 import org.quartz.Scheduler
 import org.quartz.impl.StdSchedulerFactory
@@ -24,7 +25,7 @@ import stageguard.sctimetable.service.*
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
         id = "stageguard.sctimetable",
-        version = "0.3.3",
+        version = "0.3.5",
         name = "SuperCourseTimetable"
     )
 ) {
@@ -40,17 +41,19 @@ object PluginMain : KotlinPlugin(
 
         Database.connect()
 
-        logger.info { "Waiting target Bot ${PluginConfig.qq} goes online..." }
+        if (Database.isConnected()) {
+            logger.info { "Waiting target Bot ${PluginConfig.qq} goes online..." }
 
-        GlobalEventChannel.filter {
-            it is BotOnlineEvent && it.bot.id == PluginConfig.qq
-        }.subscribeOnce<BotOnlineEvent> {
-            targetBotInstance = this.bot
-            TimeProviderService.start()
-            ScheduleListenerService.start()
-            RequestHandlerService.start()
-            BotEventRouteService.start()
-        }
+            GlobalEventChannel.filter {
+                it is BotOnlineEvent && it.bot.id == PluginConfig.qq
+            }.subscribeOnce<BotOnlineEvent> {
+                targetBotInstance = this.bot
+                TimeProviderService.start()
+                ScheduleListenerService.start()
+                RequestHandlerService.start()
+                BotEventRouteService.start()
+            }
+        } else PluginMain.logger.error("Database is not connected, services will not start.")
     }
 
     override fun onDisable() {
