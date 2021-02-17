@@ -126,6 +126,7 @@ SuperCourseTimetableBot 并未经过长期运行测试，对于其 `Quartz` 任�
 - [x] 手动修改时间表
 - [x] 在时间表被修改时通知本校其他用户
 - [ ] 支持手动添加课程(补课或永久调整的课程)
+- [ ] 使用 `Mozilla Rhino` 通过动态 `JavaScript` 来适配不同的教务系统。
 
 ## 贡献
 
