@@ -161,75 +161,128 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
             is Request.SyncSchoolTimetableRequest -> {
                 Database.suspendQuery<Unit> {
                     val user = User.find { Users.qq eq request.qq }
-                    suspend fun syncFromServer() {
-                        SuperCourseApiService.loginViaPassword(user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey)).also { user ->
-                            when(user) {
+                    suspend fun syncFromServer(createNew : Boolean) {
+                        SuperCourseApiService.loginViaPassword(user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey)).also { loginDTO ->
+                            when(loginDTO) {
                                 is Either.Left -> {
-                                    SchoolTimetable.new {
-                                        schoolId = user.value.data.student.schoolId
-                                        schoolName = user.value.data.student.schoolName
-                                        beginYear = TimeProviderService.currentSemesterBeginYear
-                                        semester = TimeProviderService.currentSemester
-                                        scheduledTimeList = user.value.data.student.attachmentBO.myTermList.first { termList ->
-                                            termList.beginYear == TimeProviderService.currentSemesterBeginYear && termList.term == TimeProviderService.currentSemester
-                                            //这超级课表是什么傻逼，妈的还带空字符串
-                                        }.courseTimeList.courseTimeBO.filter { it.beginTimeStr.isNotEmpty() }.joinToString("|") { time ->
-                                            "${time.beginTimeStr.substring(0..1)}:${time.beginTimeStr.substring(2..3)}-${time.endTimeStr.substring(0..1)}:${time.endTimeStr.substring(2..3)}"
+                                    val scheduledTimetable = loginDTO.value.data.student.attachmentBO.myTermList.first { termList ->
+                                        termList.beginYear == TimeProviderService.currentSemesterBeginYear && termList.term == TimeProviderService.currentSemester
+                                        //这超级课表是什么傻逼，妈的还带空字符串
+                                    }.courseTimeList.courseTimeBO.filter { it.beginTimeStr.isNotEmpty() }.joinToString("|") { time ->
+                                        "${time.beginTimeStr.substring(0..1)}:${time.beginTimeStr.substring(2..3)}-${time.endTimeStr.substring(0..1)}:${time.endTimeStr.substring(2..3)}"
+                                    }
+                                    if(createNew) {
+                                        SchoolTimetable.new {
+                                            schoolId = loginDTO.value.data.student.schoolId
+                                            schoolName = loginDTO.value.data.student.schoolName
+                                            beginYear = TimeProviderService.currentSemesterBeginYear
+                                            semester = TimeProviderService.currentSemester
+                                            scheduledTimeList = scheduledTimetable
+                                            timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
+                                            weekPeriodWhenAdd = 1
                                         }
-                                        timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
-                                        weekPeriodWhenAdd = 1
+                                    } else {
+                                        SchoolTimetable.find {
+                                            (SchoolTimetables.schoolId eq user.first().schoolId) and
+                                            (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                                            (SchoolTimetables.semester eq TimeProviderService.currentSemester)
+                                        }.first().scheduledTimeList = scheduledTimetable
                                     }
                                     TimeProviderService.immediateUpdateSchoolWeekPeriod()
                                 }
                                 //用户记录在User的密码有误或者其他问题(网络问题等)
                                 is Either.Right -> {
-                                    error("Failed to sync user ${request.qq}'s school timetable, reason: ${user.value.data.errorStr}")
-                                    BotEventRouteService.sendMessageNonBlock(request.qq,"无法从服务器同步学校时间表信息，可能是因为你已经修改了超级课表的密码。\n具体原因：${user.value.data.errorStr}")
+                                    error("Failed to sync user ${request.qq}'s school timetable, reason: ${loginDTO.value.data.errorStr}")
+                                    BotEventRouteService.sendMessageNonBlock(request.qq,"无法从服务器同步学校时间表信息，可能是因为你已经修改了超级课表的密码。\n具体原因：${loginDTO.value.data.errorStr}")
                                 }
                             }
                         }
                     }
                     if(!user.empty()) {
-                        val schoolTimeTable = SchoolTimetable.find { SchoolTimetables.schoolId eq user.first().schoolId }
-                        if(schoolTimeTable.empty()) {
-                            //首次从服务器同步时间表
-                            syncFromServer()
-                            info("Sync timetable from server for ${request.qq}'s school successfully.")
-                            BotEventRouteService.sendMessageNonBlock(request.qq, "成功从服务器同步学校的时间表信息。\n注意：这是首次同步您的学校时间表，若当前周数有误，请发送\"修改时间表\"修改。")
-                            sendRequest(Request.SyncSchoolWeekPeriodRequest(request.qq, 1))
-                        } else if(request.forceUpdate) {
+                        val schoolTimeTable = SchoolTimetable.find {
+                            (SchoolTimetables.schoolId eq user.first().schoolId) and
+                            (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                            (SchoolTimetables.semester eq TimeProviderService.currentSemester)
+                        }
+                        if(request.forceUpdate) {
                             if(request.newTimetable == null) {
                                 //从服务器更新时间表
-                                syncFromServer()
+                                syncFromServer(schoolTimeTable.empty())
                                 ScheduleListenerService.onChangeSchoolTimetable(user.first().schoolId)
                                 info("Sync timetable from server for ${request.qq}'s school successfully, forceUpdate=${request.forceUpdate}.")
                                 BotEventRouteService.sendMessageNonBlock(request.qq, "成功强制从服务器同步时间表，将影响学校其他用户。")
-                                //提醒着各学校的其他人时间表已被强制从服务器同步
                             } else {
                                 //手动修正时间表
                                 schoolTimeTable.first().scheduledTimeList = request.newTimetable.joinToString("|") { "${it.first}-${it.second}" }
                                 ScheduleListenerService.onChangeSchoolTimetable(user.first().schoolId)
                                 info("Sync timetable from user custom list for ${request.qq}'s school successfully, forceUpdate=${request.forceUpdate}.")
                                 BotEventRouteService.sendMessageNonBlock(request.qq, "已修正学校时间表，将影响学校的其他用户。")
-                                //提醒这个学校的其他人时间表已被手动修改
-                                User.find { Users.schoolId eq user.first().schoolId }.forEach {
-                                    if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校时间表已经被同校用户 ${request.qq} 修改，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
-                                }
                             }
+                            User.find { Users.schoolId eq user.first().schoolId }.forEach {
+                                if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校时间表已经被同校用户 ${request.qq} 同步/修正，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
+                            }
+                        } else if(schoolTimeTable.empty()) {
+                            //首次从服务器同步时间表
+                            syncFromServer(true)
+                            info("Sync timetable from server for ${request.qq}'s school successfully.")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "成功从服务器同步学校的时间表信息。\n注意：这是首次同步您的学校时间表，若当前周数有误，请发送\"修改时间表\"修改。")
+                            sendRequest(Request.SyncSchoolWeekPeriodRequest(request.qq, 1))
                         } else {
                             warning("Deny to sync school timetable for ${request.qq}'s school, forceUpdate=${request.forceUpdate}.")
-                            BotEventRouteService.sendMessageNonBlock(request.qq, "您所在的学校的时间表信息已在之前被其他同校用户同步并修正，输入\"查看时间表\"查看。")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "您所在的学校的时间表信息已在之前被同校用户 ${request.qq} 同步并修正，输入\"查看时间表\"查看。")
                         }
                     } else {
                         error("Failed to sync school timetable ${request.qq}'s school, reason: User doesn't exist.")
                     }
                 }
             }
+            is Request.InheritTimetableFromLastSemester -> {
+                Database.suspendQuery {
+                    val user = User.find { Users.qq eq request.qq }
+                    if(!user.empty()) {
+                        val lastSemester = if(TimeProviderService.currentSemester == 2) 1 else 2
+                        val lastSemesterBeginYear = if(TimeProviderService.currentSemester == 2) TimeProviderService.currentSemesterBeginYear else TimeProviderService.currentSemesterBeginYear - 1
+                        val lastSemesterSchoolTimetable = Database.suspendQuery {
+                            SchoolTimetable.find {
+                                (SchoolTimetables.schoolId eq user.first().schoolId) and
+                                        (SchoolTimetables.beginYear eq lastSemesterBeginYear) and
+                                        (SchoolTimetables.semester eq lastSemester)
+                            }.firstOrNull()
+                        }
+                        if(lastSemesterSchoolTimetable != null) {
+                            SchoolTimetable.new {
+                                schoolId = lastSemesterSchoolTimetable.schoolId
+                                schoolName = lastSemesterSchoolTimetable.schoolName
+                                beginYear = TimeProviderService.currentSemesterBeginYear
+                                semester = TimeProviderService.currentSemester
+                                scheduledTimeList = lastSemesterSchoolTimetable.scheduledTimeList
+                                timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
+                                weekPeriodWhenAdd = 1
+                            }
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "已将 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的课表设置为沿用上个学期/学年，输入\"查看时间表\"查看。")
+                            TimeProviderService.immediateUpdateSchoolWeekPeriod()
+                            ScheduleListenerService.onChangeSchoolTimetable(user.first().schoolId)
+                            User.find { Users.schoolId eq user.first().schoolId }.forEach {
+                                if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq,
+                                    "您所在的学校 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的时间表已经被同校用户 ${request.qq} 设置为与上学期/学年相同，请输入\"查看时间表\"查看。\n若当前学期和上学期的时间表有出入，请发送\"修改时间表\"手动修改。",
+                                    60000L)
+                            }
+                        } else BotEventRouteService.sendMessageNonBlock(request.qq, "未找到上个学期/学年的时间表，请尝试从服务器同步。")
+                    } else {
+                        error("Failed to inherit school timetable ${request.qq}'s school, reason: User doesn't exist.")
+                    }
+
+                }
+            }
             is Request.SyncSchoolWeekPeriodRequest -> {
                 Database.suspendQuery {
                     val user = User.find { Users.qq eq request.qq }
                     if(!user.empty()) {
-                        val schoolTimetable = SchoolTimetable.find { SchoolTimetables.schoolId eq user.first().schoolId }
+                        val schoolTimetable = SchoolTimetable.find {
+                            (SchoolTimetables.schoolId eq user.first().schoolId) and
+                            (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                            (SchoolTimetables.semester eq TimeProviderService.currentSemester)
+                        }
                         if(!schoolTimetable.empty()) {
                             schoolTimetable.first().apply {
                                 timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
@@ -238,13 +291,13 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             TimeProviderService.immediateUpdateSchoolWeekPeriod() //阻塞以保证这个过程结束后再执行下一步
                             ScheduleListenerService.onChangeSchoolWeekPeriod(schoolTimetable.first().schoolId)
                             info("Sync school week period for user ${request.qq}'s school successfully, currentWeek=${request.currentWeek}.")
-                            BotEventRouteService.sendMessageNonBlock(request.qq, "成功修改当前周数为第 ${request.currentWeek} 周。")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "成功修改 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的周数为第 ${request.currentWeek} 周。")
                             User.find { Users.schoolId eq user.first().schoolId }.forEach {
                                 if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校的当前周数已经被同校用户 ${request.qq} 修改，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
                             }
                         } else {
                             error("Failed to sync school week period for user ${request.qq}'s school, reason: School doesn't exist.")
-                            BotEventRouteService.sendMessageNonBlock(request.qq, "无法修改当前周数，该学校不存在！\n如果你已经登录，请删除你的信息并重新登录。")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "无法修改 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的周数，未找到该学校！\n如果你已经登录，请删除你的信息并重新登录。")
                         }
                     } else {
                         error("Failed to sync school week period for user ${request.qq}'s school, reason: User doesn't exist.")
@@ -344,5 +397,13 @@ sealed class Request {
      */
     class ChangeUserPasswordRequest(val qq: Long, val password: String) : Request() {
         override fun toString() = "ChangeUserPasswordRequest(qq=$qq)"
+    }
+    /**
+     * InheritTimetableFromLastSemester: 从上一个学期继承时间表
+     *
+     * @param qq 用户
+     */
+    class InheritTimetableFromLastSemester(val qq: Long) : Request() {
+        override fun toString() = "InheritTimetableFromLastSemester(qq=$qq)"
     }
 }

@@ -27,6 +27,7 @@ import com.sun.management.OperatingSystemMXBean
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.MiraiExperimentalApi
+import org.jetbrains.exposed.sql.and
 import stageguard.sctimetable.utils.*
 import java.util.regex.Pattern
 import kotlin.contracts.ExperimentalContracts
@@ -116,23 +117,48 @@ object BotEventRouteService : AbstractPluginManagedService() {
             startsWith("查看时间表") { Database.suspendQuery {
                 val user = User.find { Users.qq eq subject.id }
                 if(!user.empty()) {
-                    val schoolTimetable = SchoolTimetable.find { SchoolTimetables.schoolId eq user.first().schoolId }.first()
-                    var index = 1
-                    subject.sendMessage("${schoolTimetable.schoolName}\n" +
-                        "当前是第 ${TimeProviderService.currentWeekPeriod[schoolTimetable.schoolId]} 周。\n" +
-                        "时间表：\n" +
-                        "${schoolTimetable.scheduledTimeList.split("|").joinToString("\n") {
-                            "${index ++}. ${it.replace("-", " 到 ")}"
-                        }}\n" +
-                        "如果以上数据有任何问题，请发送\"修改时间表\"修改。"
-                    )
+                    val schoolTimetable = SchoolTimetable.find {
+                        (SchoolTimetables.schoolId eq user.first().schoolId) and
+                        (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                        (SchoolTimetables.semester eq TimeProviderService.currentSemester)
+                    }.firstOrNull()
+                    if(schoolTimetable != null) {
+                        var index = 1
+                        subject.sendMessage("${schoolTimetable.schoolName}\n" +
+                                "${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期。\n" +
+                                "当前是第 ${TimeProviderService.currentWeekPeriod[schoolTimetable.schoolId]} 周。\n" +
+                                "时间表：\n" +
+                                "${schoolTimetable.scheduledTimeList.split("|").joinToString("\n") {
+                                    "${index ++}. ${it.replace("-", " 到 ")}"
+                                }}\n" +
+                                "如果以上数据有任何问题，请发送\"修改时间表\"修改。"
+                        )
+                    } else interactiveConversation(scope = this@BotEventRouteService) {
+                        send("""
+                            未找到 ${TimeProviderService.currentSemesterBeginYear} 年第 ${TimeProviderService.currentSemester} 学期的时间表。
+                            要添加时间表吗？
+                            发送"沿用"将上个学期/学年的时间表沿用至当前学期。
+                            发送"同步"将从服务器重新同步时间表信息。
+                            否则取消操作。
+                        """.trimIndent())
+                        select(timeoutLimit = 10000L) {
+                            "沿用" { collect("syncType", 1) }
+                            "同步" { collect("syncType", 2) }
+                        }
+                    }.finish {
+                        when(it["syncType"].cast<Int>()) {
+                            1 -> RequestHandlerService.sendRequest(Request.InheritTimetableFromLastSemester(sender.id))
+                            2 -> RequestHandlerService.sendRequest(Request.SyncSchoolTimetableRequest(sender.id, forceUpdate = true))
+                        }
+                    }
+
                 } else subject.sendMessage("你还没有登录超级课表，无法同步时间表")
             } }
             finding(Regex("^今[日天]课[表程]")) { Database.suspendQuery {
                 val user = User.find { Users.qq eq subject.id }
                 if(!user.empty()) {
-                    val courses = ScheduleListenerService.getUserTodayCourses(subject.id, user.first().schoolId)
                     val schoolTimetable = ScheduleListenerService.getSchoolTimetable(user.first().schoolId)
+                    val courses = ScheduleListenerService.getUserTodayCourses(subject.id, user.first().schoolId)
                     var index = 1
                     subject.sendMessage(if(courses.isEmpty()) "今日没有课程。" else courses.joinToString("\n") {
                         "${index ++}. " + it.courseName + "(${schoolTimetable[it.startSection - 1].first.let { stamp ->

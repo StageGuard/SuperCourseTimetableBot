@@ -40,75 +40,85 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
     /**
      * 用户今天的课程，按照时间顺序存储到[SingleCourse]中，通过[getUserTodayCourses]获取
      */
-    private val userCourses: MutableMap<Long, List<SingleCourse>> = mutableMapOf()
+    private val userCourses: MutableMap<Long, MutableList<SingleCourse>> = mutableMapOf()
     /**
      * 学校时间表，第一次使用时从数据库通过[getSchoolTimetable]函数解析到这里。
      *
-     * ```Map```中的```Key```是学校ID，```Pair``` 中的 ```first``` 是这节课的开始时间，```second``` 是结束时间。
-     *
      * 时间是按照分钟算的，比如 ```00:30``` 转换为 ```30```，```08:30``` 转换为 ```510 (8x60+30)```。
      */
-    private val cachedSchoolTimetables: MutableMap<Int, List<Pair<Int, Int>>> = mutableMapOf()
-    /**
-     * 今天日期
-     */
-    private lateinit var dateOfToday: LocalDate
+    private val cachedSchoolTimetables: MutableList<PeriodSchoolTimetable> = mutableListOf()
     /**
      * 现在时间
      */
     private val nowTime
         get() = LocalDateTime.now(ZoneId.of("Asia/Shanghai"))
 
-    fun getSchoolTimetable(schoolId: Int): List<Pair<Int, Int>> = cachedSchoolTimetables[schoolId] ?: run {
-        (Database.query {
-            val table = SchoolTimetable.find { SchoolTimetables.schoolId eq schoolId }
-            if (!table.empty()) {
-                table.first().scheduledTimeList.split("|").map { period ->
+    fun getSchoolTimetable(schoolId: Int): List<Pair<Int, Int>> = cachedSchoolTimetables.filter {
+        it.schoolId == schoolId && it.semester == TimeProviderService.currentSemester && it.beginYear == TimeProviderService.currentSemesterBeginYear
+    }.run {
+        if(!isEmpty()) single().scheduledTimetable else Database.query {
+            val table = SchoolTimetable.find {
+                (SchoolTimetables.schoolId eq schoolId) and
+                (SchoolTimetables.semester eq TimeProviderService.currentSemester) and
+                (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear)
+            }.firstOrNull()
+            if(table != null) {
+                table.scheduledTimeList.split("|").map { period ->
                     period.split("-").map { stamp ->
                         stamp.split(":").let { it[0].toInt() * 60 + it[1].toInt() }
                     }.let { it[0] to it[1] }
-                }.also { cachedSchoolTimetables[schoolId] = it }
-            } else listOf()
-        } ?: listOf()).also {
-            verbose("getSchoolTimetable(schoolId=$schoolId)")
-        }
+                }.also { cachedSchoolTimetables.add(PeriodSchoolTimetable(
+                    schoolId,
+                    TimeProviderService.currentSemester,
+                    TimeProviderService.currentSemesterBeginYear,
+                    it
+                )) }
+            } else {
+                warning("Timetable in ${TimeProviderService.currentSemesterBeginYear}:${TimeProviderService.currentSemester} of school $schoolId is not found!")
+                listOf()
+            }
+        } ?: listOf()
+    }.also {
+        verbose("getSchoolTimetable(schoolId=$schoolId)")
     }
 
     fun removeSchoolTimetable(schoolId: Int) {
-        if(cachedSchoolTimetables.containsKey(schoolId)) {
-            cachedSchoolTimetables.remove(schoolId)
-            verbose("removeSchoolTimetable(schoolId=$schoolId)")
-        }
+        cachedSchoolTimetables.removeIf { it.schoolId == schoolId }
+        verbose("removeSchoolTimetable(schoolId=$schoolId)")
     }
 
-    fun getUserTodayCourses(qq: Long, belongingSchool: Int): List<SingleCourse> = userCourses.run {
-        if(this.containsKey(qq)) this[qq]!! else {
-            if(TimeProviderService.currentWeekPeriod[belongingSchool] != null) {
-                (Database.query {
-                    val courses = Courses(qq)
-                    val coursesList = mutableListOf<SingleCourse>()
-                    courses.select {
-                        (courses.beginYear eq TimeProviderService.currentSemesterBeginYear) and (courses.semester eq TimeProviderService.currentSemester) and (courses.whichDayOfWeek eq dateOfToday.dayOfWeek.value)
-                    }.forEach {
-                        it[courses.weekPeriod].split(" ").forEach { week ->
-                            if(week.toInt() == TimeProviderService.currentWeekPeriod[belongingSchool]) {
-                                coursesList.add(SingleCourse(
-                                    it[courses.sectionStart],
-                                    it[courses.sectionEnd],
-                                    it[courses.courseName],
-                                    it[courses.teacherName],
-                                    it[courses.locale]
-                                ))
-                            }
-                        }
+    fun getUserTodayCourses(qq: Long, belongingSchool: Int): List<SingleCourse> {
+        fun getCourseFromDatabase() = Database.query {
+            val courses = Courses(qq)
+            val coursesList = mutableListOf<SingleCourse>()
+            courses.select {
+                (courses.beginYear eq TimeProviderService.currentSemesterBeginYear) and (courses.semester eq TimeProviderService.currentSemester) and (courses.whichDayOfWeek eq TimeProviderService.currentTimeStamp.dayOfWeek.value)
+            }.forEach {
+                it[courses.weekPeriod].split(" ").forEach { week ->
+                    if(week.toInt() == TimeProviderService.currentWeekPeriod[belongingSchool]) {
+                        coursesList.add(SingleCourse(
+                            it[courses.sectionStart],
+                            it[courses.sectionEnd],
+                            it[courses.courseName],
+                            it[courses.teacherName],
+                            it[courses.locale],
+                            TimeProviderService.currentSemester,
+                            TimeProviderService.currentSemesterBeginYear
+                        ))
                     }
-                    coursesList.toList().sortedBy { it.startSection }
-                } ?: listOf()).also { this[qq] = it }
-            } else {
-                warning("Cannot get user $qq's today courses because school doesn't exist in TimeProviderService")
-                listOf<SingleCourse>().also { this[qq] = it }
+                }
             }
-        }.also { verbose("getUserTodayCourses(qq=$qq,belongingSchool=$belongingSchool)") }
+            coursesList.sortedBy { it.startSection }
+        } ?: listOf()
+        return userCourses.run {
+            if(this.containsKey(qq)) this[qq]!!.run {
+                filter {
+                    it.semester == TimeProviderService.currentSemester && it.beginYear == TimeProviderService.currentSemesterBeginYear
+                }.run {
+                    if(isEmpty()) getCourseFromDatabase().also { forEach { userCourses[qq]!!.add(it) } } else this
+                }
+            } else getCourseFromDatabase().also { this[qq] = it.toMutableList() }
+        }
     }
 
     fun removeUserTodayCourses(qq: Long) {
@@ -163,7 +173,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
                         } else {
                             CronScheduleBuilder.cronSchedule("${floor(Math.random() * 60).toInt()} ${
                                 (schoolTimetable[theComingCourse.startSection - 1].first - tipOffset).let { "${it % 60} ${(it - (it % 60)) / 60}" }
-                            } ${ dateOfToday.let { "${it.dayOfMonth} ${it.month.value} ? ${it.year}" } }".also {
+                            } ${ TimeProviderService.currentTimeStamp.let { "${it.dayOfMonth} ${it.month.value} ? ${it.year}" } }".also {
                                 verbose("schedule notification job for $qq: cron $it.")
                             })
                         }).build())
@@ -215,7 +225,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
     /**
      * 在用户修改了提前提醒时间时调用.
      */
-    fun restartUserNotification(qq: Long) = Database.query<Unit> {
+    fun restartUserNotification(qq: Long) = Database.query {
         info("ScheduleListenerService.restartUserNotification(qq=$qq)")
         val user = User.find { Users.qq eq qq }
         if(!user.empty()) {
@@ -250,8 +260,6 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
      */
     class UserNotificationDistributionJob : Job {
         override fun execute(context: JobExecutionContext?) {
-            //更新今天日期
-            dateOfToday = TimeProviderService.currentTimeStamp
             Database.query {
                 val users = User.all()
                 for(user in users) {
@@ -299,5 +307,14 @@ data class SingleCourse(
     val endSection: Int,
     val courseName: String,
     val teacherName: String,
-    val locale: String
+    val locale: String,
+    val semester: Int,
+    val beginYear: Int
+)
+
+data class PeriodSchoolTimetable(
+    val schoolId: Int,
+    val semester: Int,
+    val beginYear: Int,
+    val scheduledTimetable: List<Pair<Int, Int>>
 )

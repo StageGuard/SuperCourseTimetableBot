@@ -29,7 +29,9 @@ object PluginMain : KotlinPlugin(
         name = "SuperCourseTimetable"
     )
 ) {
-    val quartzScheduler: Scheduler = StdSchedulerFactory.getDefaultScheduler().also { it.start() }
+    val quartzScheduler: Scheduler by lazy {
+        StdSchedulerFactory.getDefaultScheduler().also { it.start() }
+    }
     lateinit var targetBotInstance: Bot
 
     @MiraiExperimentalApi
