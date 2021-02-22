@@ -239,7 +239,7 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                             ScheduleListenerService.onChangeSchoolWeekPeriod(schoolTimetable.first().schoolId)
                             info("Sync school week period for user ${request.qq}'s school successfully, currentWeek=${request.currentWeek}.")
                             BotEventRouteService.sendMessageNonBlock(request.qq, "成功修改当前周数为第 ${request.currentWeek} 周。")
-                            User.all().forEach {
+                            User.find { Users.schoolId eq user.first().schoolId }.forEach {
                                 if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校的当前周数已经被同校用户 ${request.qq} 修改，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
                             }
                         } else {
