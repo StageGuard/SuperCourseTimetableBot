@@ -24,7 +24,7 @@ object SchoolTimetables : IntIdTable("schooltimetables") {
     /**
      * 学校ID
      **/
-    val schoolId: Column<Int> = integer("schoolId").uniqueIndex()
+    val schoolId: Column<Int> = integer("schoolId")
     /**
      * 学校名称
      **/
