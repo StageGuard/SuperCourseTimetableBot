@@ -148,7 +148,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     }.finish {
                         when(it["syncType"].cast<Int>()) {
                             1 -> RequestHandlerService.sendRequest(Request.InheritTimetableFromLastSemester(sender.id))
-                            2 -> RequestHandlerService.sendRequest(Request.SyncSchoolTimetableRequest(sender.id, forceUpdate = true))
+                            2 -> RequestHandlerService.sendRequest(Request.SyncSchoolTimetableRequest(sender.id, forceUpdate = true, alsoSyncCourses = true))
                         }
                     }
 
@@ -210,7 +210,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     else -> {}
                 } }
             }
-            finding(Regex("^(怎么用|帮助)$")) {
+            (case("怎么用") or case("帮助")) {
                 subject.sendMessage("""
                     欢迎使用 超级课表课程提醒QQ机器人。
                     它可以在你下一节课上课前提醒你这节课的信息，避免你错过课程。

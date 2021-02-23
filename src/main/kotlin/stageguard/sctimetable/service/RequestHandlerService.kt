@@ -124,6 +124,7 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                     crs[semester] = TimeProviderService.currentSemester
                                 } } }
                                 info("Sync user ${request.qq}'s courses successfully.")
+                                ScheduleListenerService.restartUserNotification(request.qq)
                                 BotEventRouteService.sendMessageNonBlock(request.qq,"""
                                     课程同步成功！
                                     你将在每节课上课前 ${PluginData.advancedTipOffset[request.qq] ?: PluginConfig.advancedTipTime} 分钟收到课程提醒。
@@ -219,7 +220,15 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                 BotEventRouteService.sendMessageNonBlock(request.qq, "已修正学校时间表，将影响学校的其他用户。")
                             }
                             User.find { Users.schoolId eq user.first().schoolId }.forEach {
-                                if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校时间表已经被同校用户 ${request.qq} 同步/修正，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
+                                if(request.alsoSyncCourses) {
+                                    if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq,
+                                        "您所在的学校 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的时间表已经被同校用户 ${request.qq} 从服务器同步。\n请输入\"查看时间表\"查看。\n正在自动为你同步当前学期课程...",
+                                        60000L)
+                                    sendRequest(Request.SyncCourseRequest(it.qq))
+                                } else {
+                                    if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq, "您所在的学校时间表已经被同校用户 ${request.qq} 同步/修正，请输入\"查看时间表\"查看。\n若修改有误或恶意修改，请联系对方。", 60000L)
+                                }
+
                             }
                         } else if(schoolTimeTable.empty()) {
                             //首次从服务器同步时间表
@@ -259,13 +268,16 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                 timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
                                 weekPeriodWhenAdd = 1
                             }
-                            BotEventRouteService.sendMessageNonBlock(request.qq, "已将 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的课表设置为沿用上个学期/学年，输入\"查看时间表\"查看。")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "已将 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的课表设置为沿用上个学期/学年，输入\"查看时间表\"查看。\n正在自动为你同步当前学期课程...")
                             TimeProviderService.immediateUpdateSchoolWeekPeriod()
                             ScheduleListenerService.onChangeSchoolTimetable(user.first().schoolId)
                             User.find { Users.schoolId eq user.first().schoolId }.forEach {
-                                if(it.qq != request.qq) BotEventRouteService.sendMessageNonBlock(it.qq,
-                                    "您所在的学校 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的时间表已经被同校用户 ${request.qq} 设置为与上学期/学年相同，请输入\"查看时间表\"查看。\n若当前学期和上学期的时间表有出入，请发送\"修改时间表\"手动修改。",
-                                    60000L)
+                                if(it.qq != request.qq) {
+                                    BotEventRouteService.sendMessageNonBlock(it.qq,
+                                        "您所在的学校 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的时间表已经被同校用户 ${request.qq} 设置为与上学期/学年相同。\n请输入\"查看时间表\"查看。\n若当前学期和上学期的时间表有出入，请发送\"修改时间表\"手动修改。\n正在自动为你同步当前学期课程...",
+                                        60000L)
+                                }
+                                sendRequest(Request.SyncCourseRequest(it.qq))
                             }
                         } else BotEventRouteService.sendMessageNonBlock(request.qq, "未找到上个学期/学年的时间表，请尝试从服务器同步。")
                     } else {
@@ -375,9 +387,10 @@ sealed class Request {
     class SyncSchoolTimetableRequest(
         val qq: Long,
         val newTimetable: List<Pair<String, String>>? = null,
-        val forceUpdate: Boolean = false
+        val forceUpdate: Boolean = false,
+        val alsoSyncCourses: Boolean = false,
     ) : Request() {
-        override fun toString() = "SyncSchoolTimetableRequest(qq=$qq,newTimetable=${newTimetable?.joinToString(",") { "[${it.first}->${it.second}]" } ?: "<syncFromServer>"},forceUpdate=$forceUpdate)"
+        override fun toString() = "SyncSchoolTimetableRequest(qq=$qq,newTimetable=${newTimetable?.joinToString(",") { "[${it.first}->${it.second}]" } ?: "<syncFromServer>"},forceUpdate=$forceUpdate,alsoSyncCourses=$alsoSyncCourses)"
     }
     /**
      * SyncSchoolWeekPeriod：同步这个学校当前学期的周数，

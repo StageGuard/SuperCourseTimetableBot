@@ -92,7 +92,9 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
             val courses = Courses(qq)
             val coursesList = mutableListOf<SingleCourse>()
             courses.select {
-                (courses.beginYear eq TimeProviderService.currentSemesterBeginYear) and (courses.semester eq TimeProviderService.currentSemester) and (courses.whichDayOfWeek eq TimeProviderService.currentTimeStamp.dayOfWeek.value)
+                (courses.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                (courses.semester eq TimeProviderService.currentSemester) and
+                (courses.whichDayOfWeek eq TimeProviderService.currentTimeStamp.dayOfWeek.value)
             }.forEach {
                 it[courses.weekPeriod].split(" ").forEach { week ->
                     if(week.toInt() == TimeProviderService.currentWeekPeriod[belongingSchool]) {
