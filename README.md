@@ -127,6 +127,10 @@ SuperCourseTimetableBot 并未经过长期运行测试，对于其 `Quartz` 任�
 - [ ] 支持手动添加课程(补课或永久调整的课程)
 - [ ] 使用 `Mozilla Rhino` 通过动态 `JavaScript` 来适配不同的教务系统。
 
+## 开发计划
+
+SuperCourseTimetableBot 插件将会在 `1.0` 版本允许动态适配不同教务系统(详见上方 `TODO` 第四条)，完全重构 `RequestHandlerService` 和 `BotRouteEventService`，并实现 自定义文本/自定义语音/自定义图片 提醒。
+
 ## 贡献
 
 欢迎任何~~使用者~~大佬们贡献这个项目，你可以通过**反馈 BUG**，**提出 Pull Request** 申请，~~或修改文档错别字~~来贡献这个项目。
