@@ -36,15 +36,11 @@ data class __InternalGenericCourseData(
 
 @Serializable
 data class __InternalLesson(
-    val autoEntry: Boolean,
     val courseId: Int,
-    val courseMark: Int,
-    val courseType: Int,
     val day: Int,
     val endSchoolYear: String,
     val id: Int,
     val locale: String,
-    val maxCount: Int,
     val name: String,
     val period: String,
     val schoolId: Int,
@@ -54,6 +50,5 @@ data class __InternalLesson(
     val semester: String,
     val smartPeriod: String,
     val startSchoolYear: String,
-    val teacher: String,
-    val verifyStatus: Int
+    val teacher: String = "",
 )
