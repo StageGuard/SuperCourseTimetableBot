@@ -18,16 +18,15 @@ import stageguard.sctimetable.PluginData
 import stageguard.sctimetable.PluginMain
 import stageguard.sctimetable.api.edu_system.`super`.LoginInfoData
 import stageguard.sctimetable.database.Database
-import stageguard.sctimetable.database.model.SchoolTimetable
-import stageguard.sctimetable.database.model.SchoolTimetables
-import stageguard.sctimetable.database.model.User
-import stageguard.sctimetable.database.model.Users
 import java.lang.management.ManagementFactory
 import com.sun.management.OperatingSystemMXBean
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.MiraiExperimentalApi
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
+import stageguard.sctimetable.database.model.*
 import stageguard.sctimetable.utils.*
 import java.util.regex.Pattern
 import kotlin.contracts.ExperimentalContracts
@@ -113,6 +112,59 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     is QuitConversationExceptions.TimeoutException -> subject.sendMessage("长时间未输入，请重新发送\"修改时间表\"")
                     is QuitConversationExceptions.AdvancedQuitException -> subject.sendMessage("取消修改时间表。")
                 } }
+            } }
+            startsWith("同步课程") { Database.suspendQuery {
+                val user = User.find { Users.qq eq subject.id }
+                if(!user.empty()) {
+                    val courses = Courses(subject.id)
+                    SchemaUtils.create(courses)
+                    val currentSemesterCourses = courses.select {
+                        (courses.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                        (courses.semester eq TimeProviderService.currentSemester)
+                    }
+                    if(currentSemesterCourses.empty()) {
+                        interactiveConversation(this@BotEventRouteService, eachTimeLimit = 10000L) {
+                            send("""
+                                未找到 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的课表信息！
+                                是否要从超级课表同步？
+                                发送 "确认" 进行同步。
+                                请注意：请务必先打开超级课表App导入当前学期的课程，机器人才能从超级课表同步！
+                            """.trimIndent())
+                            select {
+                                "确认" { collect("sync", true) }
+                                default { collect("sync", false) }
+                            }
+                        }.finish {
+                            if(it["sync"].cast()) RequestHandlerService.sendRequest(Request.SyncCourseRequest(subject.id))
+                        }.exception {
+                            if(it is QuitConversationExceptions.TimeoutException) {
+                                sendMessageNonBlock(subject.id, "取消操作。")
+                            }
+                        }
+                    } else {
+                        interactiveConversation(this@BotEventRouteService, eachTimeLimit = 10000L) {
+                            send("""
+                                当前记录的课程有：
+                                ${Database.query { currentSemesterCourses.joinToString("\n") { 
+                                    "                                ${it[courses.courseName]}"
+                                } }}
+                                是否要继续从超级课表同步？
+                                发送 "确认" 进行同步。
+                                请注意：继续同步会覆盖现在的所有课程信息。
+                            """.trimIndent())
+                            select {
+                                "确认" { collect("sync", true) }
+                                default { collect("sync", false) }
+                            }
+                        }.finish {
+                            if(it["sync"].cast()) RequestHandlerService.sendRequest(Request.SyncCourseRequest(subject.id))
+                        }.exception {
+                            if(it is QuitConversationExceptions.TimeoutException) {
+                                sendMessageNonBlock(subject.id, "取消操作。")
+                            }
+                        }
+                    }
+                } else subject.sendMessage("你还没有登录超级课表，无法同步课程")
             } }
             startsWith("查看时间表") { Database.suspendQuery {
                 val user = User.find { Users.qq eq subject.id }
