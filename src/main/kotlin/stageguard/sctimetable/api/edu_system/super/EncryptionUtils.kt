@@ -14,30 +14,23 @@ import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
-// this encryption utils is only for super course
 object EncryptionUtils {
-    fun encrypt(str: String?): String? {
-        return try {
-            aes(URLEncoder.encode(str, "utf-8"), md5("friday_syllabus"))
-        } catch (e: UnsupportedEncodingException) {
-            e.printStackTrace()
-            null
-        }
+    fun encrypt(str: String?): String? = try {
+        aes(URLEncoder.encode(str, "utf-8"), md5("friday_syllabus"))
+    } catch (e: UnsupportedEncodingException) {
+        e.printStackTrace()
+        null
     }
 
-    private fun aes(str: String, str2: String?): String {
-        val str3 = "AES"
-        val str4 = "utf-8"
-        return try {
-            val secretKeySpec =
-                SecretKeySpec(MessageDigest.getInstance("MD5").digest(str2!!.toByteArray(charset(str4))), str3)
-            val instance = Cipher.getInstance(str3)
-            instance.init(1, secretKeySpec)
-            byteToStr(instance.doFinal(str.toByteArray(charset(str4))))
-        } catch (e: Exception) {
-            e.printStackTrace()
-            ""
-        }
+    private fun aes(str: String, str2: String?) = try {
+        val secretKeySpec =
+            SecretKeySpec(MessageDigest.getInstance("MD5").digest(str2!!.toByteArray(charset("utf-8"))), "AES")
+        val instance = Cipher.getInstance("AES")
+        instance.init(1, secretKeySpec)
+        byteToStr(instance.doFinal(str.toByteArray(charset("utf-8"))))
+    } catch (e: Exception) {
+        e.printStackTrace()
+        ""
     }
 
     private fun byteToStr(bArr: ByteArray): String {
