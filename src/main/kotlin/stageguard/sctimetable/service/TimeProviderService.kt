@@ -92,15 +92,11 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
                 //summer month
                 in 3..8 -> 2
                 //winter month
-                in 10..12 -> 1
+                in 9..12 -> 1
                 1 -> 1
                 // <15=
                 2 -> when {
                     date.dayOfMonth < 15 -> 1
-                    else -> 2
-                }
-                9 -> when {
-                    date.dayOfMonth >= 15 -> 1
                     else -> 2
                 }
                 else -> 1
