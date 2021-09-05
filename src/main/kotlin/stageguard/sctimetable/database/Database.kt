@@ -15,6 +15,7 @@ import net.mamoe.mirai.utils.error
 import net.mamoe.mirai.utils.info
 import net.mamoe.mirai.utils.verbose
 import net.mamoe.mirai.utils.warning
+import okhttp3.internal.closeQuietly
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.statements.StatementContext
@@ -34,6 +35,7 @@ object Database {
     }
 
     private lateinit var db : Database
+    private lateinit var hikariSource: HikariDataSource
     private var connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
 
     fun <T> query(block: (Transaction) -> T) : T? = if(connectionStatus == ConnectionStatus.DISCONNECTED) {
@@ -47,7 +49,9 @@ object Database {
     } else newSuspendedTransaction(context = Dispatchers.IO, db = db) { block(this) }
 
     fun connect() {
-        db = Database.connect(hikariDataSourceProvider())
+        db = Database.connect(hikariDataSourceProvider().also {
+            hikariSource = it
+        })
         connectionStatus = ConnectionStatus.CONNECTED
         PluginMain.logger.info { "Database ${PluginConfig.database.table} is connected." }
         initDatabase()
@@ -64,6 +68,11 @@ object Database {
         SchemaUtils.create(Users, SchoolTimetables)
 
     } }
+
+    fun close() {
+        connectionStatus = ConnectionStatus.DISCONNECTED
+        hikariSource.closeQuietly()
+    }
 
     private fun hikariDataSourceProvider() : HikariDataSource = HikariDataSource(HikariConfig().apply {
         when {
@@ -84,6 +93,7 @@ object Database {
         username        = PluginConfig.database.user
         password        = PluginConfig.database.password
         maximumPoolSize = PluginConfig.database.maximumPoolSize!!
+        poolName        = "SCTimetableDB Pool"
     })
 
 }

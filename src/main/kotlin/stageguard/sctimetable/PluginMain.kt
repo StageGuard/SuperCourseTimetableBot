@@ -14,7 +14,6 @@ import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.event.GlobalEventChannel
 import net.mamoe.mirai.event.events.BotOnlineEvent
 import net.mamoe.mirai.utils.MiraiExperimentalApi
-import net.mamoe.mirai.utils.error
 import net.mamoe.mirai.utils.info
 import org.quartz.Scheduler
 import org.quartz.impl.StdSchedulerFactory
@@ -60,5 +59,6 @@ object PluginMain : KotlinPlugin(
 
     override fun onDisable() {
         SuperCourseApiService.closeHttpClient()
+        Database.close()
     }
 }
