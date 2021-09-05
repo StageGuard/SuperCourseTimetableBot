@@ -163,39 +163,44 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                 Database.suspendQuery<Unit> {
                     val user = User.find { Users.qq eq request.qq }
                     suspend fun syncFromServer(createNew : Boolean) {
-                        SuperCourseApiService.loginViaPassword(user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey)).also { loginDTO ->
-                            when(loginDTO) {
-                                is Either.Left -> {
-                                    val scheduledTimetable = loginDTO.value.data.student.attachmentBO.myTermList.first { termList ->
-                                        termList.beginYear == TimeProviderService.currentSemesterBeginYear && termList.term == TimeProviderService.currentSemester
-                                        //这超级课表是什么傻逼，妈的还带空字符串
-                                    }.courseTimeList.courseTimeBO.filter { it.beginTimeStr.isNotEmpty() }.joinToString("|") { time ->
-                                        "${time.beginTimeStr.substring(0..1)}:${time.beginTimeStr.substring(2..3)}-${time.endTimeStr.substring(0..1)}:${time.endTimeStr.substring(2..3)}"
-                                    }
-                                    if(createNew) {
-                                        SchoolTimetable.new {
-                                            schoolId = loginDTO.value.data.student.schoolId
-                                            schoolName = loginDTO.value.data.student.schoolName
-                                            beginYear = TimeProviderService.currentSemesterBeginYear
-                                            semester = TimeProviderService.currentSemester
-                                            scheduledTimeList = scheduledTimetable
-                                            timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
-                                            weekPeriodWhenAdd = 1
+                        when(val loginDTO = SuperCourseApiService.loginViaPassword(user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey))) {
+                            is Either.Left -> {
+                                val scheduledTimetable = loginDTO.value.data.student.attachmentBO.myTermList.first { termList ->
+                                    termList.beginYear == TimeProviderService.currentSemesterBeginYear && termList.term == TimeProviderService.currentSemester
+                                    //这超级课表是什么傻逼，妈的还带空字符串
+                                }.courseTimeList.courseTimeBO.run {
+                                    if(isNotEmpty()) {
+                                        filter { it.beginTimeStr.isNotEmpty() }.joinToString("|") { time ->
+                                            "${time.beginTimeStr.substring(0..1)}:${time.beginTimeStr.substring(2..3)}-${time.endTimeStr.substring(0..1)}:${time.endTimeStr.substring(2..3)}"
                                         }
                                     } else {
-                                        SchoolTimetable.find {
-                                            (SchoolTimetables.schoolId eq user.first().schoolId) and
-                                            (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
-                                            (SchoolTimetables.semester eq TimeProviderService.currentSemester)
-                                        }.first().scheduledTimeList = scheduledTimetable
+                                        //empty default
+                                        "08:10-08:55|09:05-09:50|10:10-10:55|11:05-11:50|13:40-14:25|14:35-15:20|15:30-16:15|16:25-17:10|18:05-18:50|19:00-19:45|19:55-20:40|20:50-21:35"
                                     }
-                                    TimeProviderService.immediateUpdateSchoolWeekPeriod()
                                 }
-                                //用户记录在User的密码有误或者其他问题(网络问题等)
-                                is Either.Right -> {
-                                    error("Failed to sync user ${request.qq}'s school timetable, reason: ${loginDTO.value.data.errorStr}")
-                                    BotEventRouteService.sendMessageNonBlock(request.qq,"无法从服务器同步学校时间表信息，可能是因为你已经修改了超级课表的密码。\n具体原因：${loginDTO.value.data.errorStr}")
+                                if(createNew) {
+                                    SchoolTimetable.new {
+                                        schoolId = loginDTO.value.data.student.schoolId
+                                        schoolName = loginDTO.value.data.student.schoolName
+                                        beginYear = TimeProviderService.currentSemesterBeginYear
+                                        semester = TimeProviderService.currentSemester
+                                        scheduledTimeList = scheduledTimetable
+                                        timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
+                                        weekPeriodWhenAdd = 1
+                                    }
+                                } else {
+                                    SchoolTimetable.find {
+                                        (SchoolTimetables.schoolId eq user.first().schoolId) and
+                                        (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                                        (SchoolTimetables.semester eq TimeProviderService.currentSemester)
+                                    }.first().scheduledTimeList = scheduledTimetable
                                 }
+                                TimeProviderService.immediateUpdateSchoolWeekPeriod()
+                            }
+                            //用户记录在User的密码有误或者其他问题(网络问题等)
+                            is Either.Right -> {
+                                error("Failed to sync user ${request.qq}'s school timetable, reason: ${loginDTO.value.data.errorStr}")
+                                BotEventRouteService.sendMessageNonBlock(request.qq,"无法从服务器同步学校时间表信息，可能是因为你已经修改了超级课表的密码。\n具体原因：${loginDTO.value.data.errorStr}")
                             }
                         }
                     }
