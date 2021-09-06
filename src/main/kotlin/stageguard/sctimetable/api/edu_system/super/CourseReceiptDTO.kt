@@ -28,7 +28,7 @@ data class ErrorCourseReceiptDTO(
 @Serializable
 data class __InternalGenericCourseData(
     val endSchoolYear: String,
-    val lessonList: List<__InternalLesson>,
+    val lessonList: List<__InternalLesson> = listOf(),
     val maxCount: Int,
     val semester: String,
     val startSchoolYear: String

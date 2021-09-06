@@ -111,26 +111,37 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                     if(!user.empty()) {
                         SuperCourseApiService.getCourses(request.cookieData).also { coursesDTO -> when(coursesDTO) {
                             is Either.Left -> {
-                                Database.query { coursesDTO.value.data.lessonList.forEach { e -> courseTable.insert { crs ->
-                                    crs[courseId] = e.courseId
-                                    crs[courseName] = e.name
-                                    crs[teacherName] = e.teacher
-                                    crs[locale] = e.locale
-                                    crs[whichDayOfWeek] = e.day
-                                    crs[sectionStart] = e.sectionstart
-                                    crs[sectionEnd] = e.sectionend
-                                    crs[weekPeriod] = e.smartPeriod
-                                    crs[beginYear] = TimeProviderService.currentSemesterBeginYear
-                                    crs[semester] = TimeProviderService.currentSemester
-                                } } }
-                                info("Sync user ${request.qq}'s courses successfully.")
-                                ScheduleListenerService.restartUserNotification(request.qq)
-                                BotEventRouteService.sendMessageNonBlock(request.qq,"""
-                                    课程同步成功！
-                                    你将在每节课上课前 ${PluginData.advancedTipOffset[request.qq] ?: PluginConfig.advancedTipTime} 分钟收到课程提醒。
-                                    可以发送"今日课程"查看今天的课程，发送"查看时间表"查看本校的时间表，
-                                    或者发送"修改提前提醒时间"来修改课程提醒时间。
-                                """.trimIndent())
+                                coursesDTO.value.data.lessonList.run {
+                                    if(isNotEmpty()) {
+                                        Database.query { forEach { e -> courseTable.insert { crs ->
+                                            crs[courseId] = e.courseId
+                                            crs[courseName] = e.name
+                                            crs[teacherName] = e.teacher
+                                            crs[locale] = e.locale
+                                            crs[whichDayOfWeek] = e.day
+                                            crs[sectionStart] = e.sectionstart
+                                            crs[sectionEnd] = e.sectionend
+                                            crs[weekPeriod] = e.smartPeriod
+                                            crs[beginYear] = TimeProviderService.currentSemesterBeginYear
+                                            crs[semester] = TimeProviderService.currentSemester
+                                        } } }
+                                        info("Sync user ${request.qq}'s courses successfully.")
+                                        ScheduleListenerService.restartUserNotification(request.qq)
+                                        BotEventRouteService.sendMessageNonBlock(request.qq,"""
+                                            课程同步成功！
+                                            你将在每节课上课前 ${PluginData.advancedTipOffset[request.qq] ?: PluginConfig.advancedTipTime} 分钟收到课程提醒。
+                                            可以发送"今日课程"查看今天的课程，发送"查看时间表"查看本校的时间表，
+                                            或者发送"修改提前提醒时间"来修改课程提醒时间。
+                                        """.trimIndent())
+                                    } else {
+                                        warning("Failed to sync user ${request.qq}'s courses, reason: get empty list from server.")
+                                        BotEventRouteService.sendMessageNonBlock(request.qq,"""
+                                            无法同步课程，从服务器中获取了空的课程列表。
+                                            请确保 ${TimeProviderService.currentSemesterBeginYear} 学年第 ${TimeProviderService.currentSemester} 学期的课表已添加进超级课表。
+                                            查看超级课表 app，若无课表，请先在超级课表 app 中同步教务系统的课表。。
+                                        """.trimIndent())
+                                    }
+                                }
                             }
                             is Either.Right -> {
                                 error("Failed to sync user ${request.qq}'s courses, reason: ${coursesDTO.value.message}.")
