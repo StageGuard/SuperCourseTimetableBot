@@ -53,7 +53,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
             }
         }
         PluginMain.targetBotInstance.eventChannel.subscribeFriendMessages {
-            finding(Regex("^登录超级(课程表|课表)")) {
+            finding(Regex("^登[录陆]超级(课程表|课表)")) {
                 interactiveConversation(this@BotEventRouteService, eachTimeLimit = 30000L) {
                     send("请输入超级课表账号")
                     receivePlain(key = "account")
