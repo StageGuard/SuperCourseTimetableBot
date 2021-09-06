@@ -24,7 +24,7 @@ import stageguard.sctimetable.service.*
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
         id = "stageguard.sctimetable",
-        version = "0.4.3",
+        version = "0.4.4",
         name = "SuperCourseTimetable"
     )
 ) {
