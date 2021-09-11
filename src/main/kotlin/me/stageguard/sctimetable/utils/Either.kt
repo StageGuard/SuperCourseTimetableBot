@@ -9,7 +9,7 @@
 
 @file:Suppress("NOTHING_TO_INLINE", "unused")
 
-package stageguard.sctimetable.utils
+package me.stageguard.sctimetable.utils
 
 /**
  * Safe union of two types.

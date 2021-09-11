@@ -8,26 +8,25 @@
  */
 @file:Suppress("unused")
 
-package stageguard.sctimetable.service
+package me.stageguard.sctimetable.service
 
 import kotlinx.coroutines.*
 import net.mamoe.mirai.event.*
-import stageguard.sctimetable.AbstractPluginManagedService
-import stageguard.sctimetable.PluginConfig
-import stageguard.sctimetable.PluginData
-import stageguard.sctimetable.PluginMain
-import stageguard.sctimetable.api.edu_system.`super`.LoginInfoData
-import stageguard.sctimetable.database.Database
+import me.stageguard.sctimetable.AbstractPluginManagedService
+import me.stageguard.sctimetable.PluginConfig
+import me.stageguard.sctimetable.PluginData
+import me.stageguard.sctimetable.PluginMain
+import me.stageguard.sctimetable.api.edu_system.`super`.LoginInfoData
+import me.stageguard.sctimetable.database.Database
 import java.lang.management.ManagementFactory
 import com.sun.management.OperatingSystemMXBean
 import net.mamoe.mirai.event.events.*
-import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.MiraiExperimentalApi
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
-import stageguard.sctimetable.database.model.*
-import stageguard.sctimetable.utils.*
+import me.stageguard.sctimetable.database.model.*
+import me.stageguard.sctimetable.utils.*
 import java.util.regex.Pattern
 import kotlin.contracts.ExperimentalContracts
 

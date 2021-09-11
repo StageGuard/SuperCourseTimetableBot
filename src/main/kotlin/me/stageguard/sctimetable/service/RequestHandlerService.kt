@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.service
+package me.stageguard.sctimetable.service
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -14,18 +14,18 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
-import stageguard.sctimetable.AbstractPluginManagedService
-import stageguard.sctimetable.PluginConfig
-import stageguard.sctimetable.PluginData
-import stageguard.sctimetable.api.edu_system.`super`.LoginCookieData
-import stageguard.sctimetable.api.edu_system.`super`.LoginInfoData
-import stageguard.sctimetable.api.edu_system.`super`.SuperCourseApiService
-import stageguard.sctimetable.service.RequestHandlerService.handlerChannel
-import stageguard.sctimetable.database.Database
-import stageguard.sctimetable.database.model.*
-import stageguard.sctimetable.utils.AESUtils
-import stageguard.sctimetable.utils.Either.Companion.onLeft
-import stageguard.sctimetable.utils.Either.Companion.onRight
+import me.stageguard.sctimetable.AbstractPluginManagedService
+import me.stageguard.sctimetable.PluginConfig
+import me.stageguard.sctimetable.PluginData
+import me.stageguard.sctimetable.api.edu_system.`super`.LoginCookieData
+import me.stageguard.sctimetable.api.edu_system.`super`.LoginInfoData
+import me.stageguard.sctimetable.api.edu_system.`super`.SuperCourseApiService
+import me.stageguard.sctimetable.service.RequestHandlerService.handlerChannel
+import me.stageguard.sctimetable.database.Database
+import me.stageguard.sctimetable.database.model.*
+import me.stageguard.sctimetable.utils.AESUtils
+import me.stageguard.sctimetable.utils.Either.Companion.onLeft
+import me.stageguard.sctimetable.utils.Either.Companion.onRight
 
 /**
  * RequestHandlerService 负责处理各种请求，

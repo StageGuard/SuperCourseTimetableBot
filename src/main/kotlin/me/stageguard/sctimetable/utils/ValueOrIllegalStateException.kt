@@ -1,4 +1,4 @@
-package stageguard.sctimetable.utils
+package me.stageguard.sctimetable.utils
 
 typealias ValueOrISE<T> = Either<IllegalStateException, T>
 

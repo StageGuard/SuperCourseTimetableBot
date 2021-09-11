@@ -6,6 +6,6 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.database
+package me.stageguard.sctimetable.database
 
 class InvalidDatabaseConfigException(message: String) : Exception(message)

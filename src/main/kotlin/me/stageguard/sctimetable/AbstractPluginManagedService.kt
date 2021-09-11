@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable
+package me.stageguard.sctimetable
 
 import kotlinx.coroutines.*
 import net.mamoe.mirai.utils.*

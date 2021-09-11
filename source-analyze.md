@@ -4,14 +4,14 @@
 
 SuperCourseTimetableBot 能够实现课前提醒的核心是定时任务 [Quartz](https://github.com/quartz-scheduler/quartz)，它的 [`CronTrigger`](https://github.com/quartz-scheduler/quartz/blob/master/docs/tutorials/crontrigger.md) 可以通过一个 cron 字符串实现灵活地触发定时任务。
 
-SuperCourseTimetableBot 将不同工作放在不同的 [service](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/tree/main/src/main/kotlin/stageguard/sctimetable/service) 里进行：
+SuperCourseTimetableBot 将不同工作放在不同的 [service](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/tree/main/src/main/kotlin/me/stageguard/sctimetable/service) 里进行：
 
-- [RequestHandlerService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/RequestHandlerService.kt)： 处理用户的各种请求，如**登录**，**同步课程表**和**同步时间表**等。
-- [ScheduleListenerService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/ScheduleListenerService.kt)：为每个用户分发课程提醒定时任务，是插件的核心工作。
-- [TimeProviderService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/TimeProviderService.kt)：为每个学校计算**当前周数**，**当前学期**和**当前学期开始的年份**。
-- [BotEventRouteService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/BotEventRouteService.kt)：**捕获用户发送的消息**和**新的好友请求**。
+- [RequestHandlerService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/service/RequestHandlerService.kt) ： 处理用户的各种请求，如**登录**，**同步课程表**和**同步时间表**等。
+- [ScheduleListenerService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/service/ScheduleListenerService.kt) ：为每个用户分发课程提醒定时任务，是插件的核心工作。
+- [TimeProviderService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/service/TimeProviderService.kt) ：为每个学校计算**当前周数**，**当前学期**和**当前学期开始的年份**。
+- [BotEventRouteService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me.stageguard/sctimetable/service/BotEventRouteService.kt) ：**捕获用户发送的消息**和**新的好友请求**。
 
-看看插件的接入点[`PluginMain.kt`](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/PluginMain.kt)：
+看看插件的接入点[`PluginMain.kt`](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/PluginMain.kt) ：
 
 ```kotlin
 object PluginMain : KotlinPlugin(/*...*/) {
@@ -54,7 +54,7 @@ override suspend fun main() {
             delay(5000L)
             PluginMain.targetBotInstance.friends[this@subscribe.fromId]?.sendMessage("欢迎/*...*/")
         }
-    }ListeningStatus.LISTENING }
+    }; ListeningStatus.LISTENING }
     subscribeAlways<FriendMessageEvent> { if(this.bot.id == PluginConfig.qq) {
         val plainText = message.firstIsInstanceOrNull<PlainText>()?.content ?: ""
         when {
@@ -68,7 +68,7 @@ override suspend fun main() {
             (plainText.startsWith("怎么用") || plainText.startsWith("帮助")) -> {/*...*/}
             plainText.startsWith("状态") -> launch(this@BotEventRouteService.coroutineContext) {/*...*/}
         }
-    } ListeningStatus.LISTENING }
+    }; ListeningStatus.LISTENING }
     verbose("start listening FriendMessageEvent and NewFriendRequestEvent")
 }
 ```
@@ -87,7 +87,7 @@ interactiveConversation {
 
 它的实现就在 `main`的下面。
 
-> 更多实现细节还请浏览[完整代码](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/BotEventRouteService.kt)。
+> 更多实现细节还请浏览[完整代码](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/service/BotEventRouteService.kt)。
 
 - ### RequestHandlerService
 
@@ -139,7 +139,7 @@ RequestHandlerService.sendRequest(Request.XXX(arguments/*...*/))
 
 所有事件都被定义在了 `sealed class Request` 下，每一个事件都有详细的解释。
 
-> 更多细节请浏览[完整代码](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/RequestHandlerService.kt)。
+> 更多细节请浏览[完整代码](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/service/RequestHandlerService.kt)。
 
 - ### ScheduleListenerService
 
@@ -402,9 +402,9 @@ this[qq] = JobBuilder.newJob(UserNotificationJob::class.java).apply {
 
 [![](https://mermaid.ink/img/eyJjb2RlIjoiZ3JhcGggTFJcbiAgICB1bmRqb2JbXCJVc2VyTm90aWZpY2F0aW9uRGlzdHJpYnV0aW9uSm9iXCJdIC0tXCJzZXQgYSBpbml0aWFsICd4J1wiLS0-IHN0YXJ0dW5qXG4gICAgc3RhcnR1bmooXCJzdGFydFVzZXJOb3RpZmljYXRpb25Kb2I8YnI-Y29tbWluZyA9IHg8YnI-bmV4dCA9IHggKyAxID4gbiA_IC0xIDogeCArIG5cIikgLS0-IHVuam9iXG4gICAgdW5qb2JbXCJVc2VyTm90aWZpY2F0aW9uSm9iPGJyPnNlbmRNc2cgLT4gY29tbWluZ1wiXSAtLT4ganVkZ2VcbiAgICBqdWRnZXt7XCJuZXh0ID09IC0xID9cIn19IC0tXCJObzogeCA9IG5leHRcIi0tPiBzdGFydHVualxuICAgIGp1ZGdlIC0tXCJZZXNcIi0tPiB5ZXMoXCJzdG9wXCIpIiwibWVybWFpZCI6e30sInVwZGF0ZUVkaXRvciI6ZmFsc2V9)](https://mermaid-js.github.io/mermaid-live-editor/#/edit/eyJjb2RlIjoiZ3JhcGggTFJcbiAgICB1bmRqb2JbXCJVc2VyTm90aWZpY2F0aW9uRGlzdHJpYnV0aW9uSm9iXCJdIC0tXCJzZXQgYSBpbml0aWFsICd4J1wiLS0-IHN0YXJ0dW5qXG4gICAgc3RhcnR1bmooXCJzdGFydFVzZXJOb3RpZmljYXRpb25Kb2I8YnI-Y29tbWluZyA9IHg8YnI-bmV4dCA9IHggKyAxID4gbiA_IC0xIDogeCArIG5cIikgLS0-IHVuam9iXG4gICAgdW5qb2JbXCJVc2VyTm90aWZpY2F0aW9uSm9iPGJyPnNlbmRNc2cgLT4gY29tbWluZ1wiXSAtLT4ganVkZ2VcbiAgICBqdWRnZXt7XCJuZXh0ID09IC0xID9cIn19IC0tXCJObzogeCA9IG5leHRcIi0tPiBzdGFydHVualxuICAgIGp1ZGdlIC0tXCJZZXNcIi0tPiB5ZXMoXCJzdG9wXCIpIiwibWVybWFpZCI6e30sInVwZGF0ZUVkaXRvciI6ZmFsc2V9)
 
-更多的实现细节还请浏览[完整代码](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/ScheduleListenerService.kt)。
+更多的实现细节还请浏览[完整代码](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/service/ScheduleListenerService.kt)。
 
-- ### [TimeProviderService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/service/TimeProviderService.kt)
+- ### [TimeProviderService](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/service/TimeProviderService.kt)
 
 ```kotlin
 object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
@@ -486,14 +486,14 @@ object TimeProviderService : AbstractPluginManagedService(Dispatchers.IO) {
 
 ## 其他代码
 
-- ### [PluginData](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/stageguard/sctimetable/PluginData.kt)
+- ### [PluginData](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/src/main/kotlin/me/stageguard/sctimetable/PluginData.kt)
 
 现在`PluginData.kt`中仅记录了用户指定的提前多长时间提醒数据，不将这个数据存储到数据库中是因为更方便修改。
 
-- ### Package  stageguard.sctimetable.api
+- ### Package  me.stageguard.sctimetable.api
 
 主要负责与超级课表的服务器交互，核心文件是`SuperCourseApiService.kt`
 
-- ### Package stageguard.sctimetable.database
+- ### Package me.stageguard.sctimetable.database
 
 主要负责与数据库对接，`model`中的 `dsl`/`dao`为抽象化的数据库条目。

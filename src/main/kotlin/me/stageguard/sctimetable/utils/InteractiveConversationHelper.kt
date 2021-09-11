@@ -7,7 +7,7 @@
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
 @file:Suppress("unused", "unchecked")
-package stageguard.sctimetable.utils
+package me.stageguard.sctimetable.utils
 
 import kotlinx.coroutines.*
 import net.mamoe.mirai.Bot
@@ -16,10 +16,10 @@ import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.nextMessage
-import stageguard.sctimetable.utils.Either.Companion.left
-import stageguard.sctimetable.utils.Either.Companion.onLeft
-import stageguard.sctimetable.utils.Either.Companion.onRight
-import stageguard.sctimetable.utils.Either.Companion.right
+import me.stageguard.sctimetable.utils.Either.Companion.left
+import me.stageguard.sctimetable.utils.Either.Companion.onLeft
+import me.stageguard.sctimetable.utils.Either.Companion.onRight
+import me.stageguard.sctimetable.utils.Either.Companion.right
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 

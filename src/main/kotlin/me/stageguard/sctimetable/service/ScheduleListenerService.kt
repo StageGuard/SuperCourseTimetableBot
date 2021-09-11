@@ -6,20 +6,19 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.service
+package me.stageguard.sctimetable.service
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import org.quartz.*
-import stageguard.sctimetable.AbstractPluginManagedService
-import stageguard.sctimetable.PluginConfig
-import stageguard.sctimetable.PluginData
-import stageguard.sctimetable.PluginMain
-import stageguard.sctimetable.database.Database
-import stageguard.sctimetable.database.model.*
-import java.time.LocalDate
+import me.stageguard.sctimetable.AbstractPluginManagedService
+import me.stageguard.sctimetable.PluginConfig
+import me.stageguard.sctimetable.PluginData
+import me.stageguard.sctimetable.PluginMain
+import me.stageguard.sctimetable.database.Database
+import me.stageguard.sctimetable.database.model.*
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.floor

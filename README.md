@@ -46,11 +46,11 @@ SuperCourseTimetableBot 是**基于 `mirai-core 2.x` 版本和 `mirai-console 2.
 3. 启动 mirai-console， 会有如下提示：
 
 ```
-2020-12-19 12:28:20 E/SuperCourseTimetable: stageguard.sctimetable.database.InvalidDatabaseConfigException: Database password is not set in config file SG.SCTimeTableBotConfig.
-stageguard.sctimetable.database.InvalidDatabaseConfigException: Database password is not set in config file SG.SCTimeTableBotConfig.
-        at stageguard.sctimetable.database.Database.hikariDataSourceProvider(Database.kt:75)
-        at stageguard.sctimetable.database.Database.connect(Database.kt:43)
-        at stageguard.sctimetable.PluginMain.onEnable(PluginMain.kt:32)
+2020-12-19 12:28:20 E/SuperCourseTimetable: me.stageguard.sctimetable.database.InvalidDatabaseConfigException: Database password is not set in config file SG.SCTimeTableBotConfig.
+me.stageguard.sctimetable.database.InvalidDatabaseConfigException: Database password is not set in config file SG.SCTimeTableBotConfig.
+        at me.stageguard.sctimetable.database.Database.hikariDataSourceProvider(Database.kt:75)
+        at me.stageguard.sctimetable.database.Database.connect(Database.kt:43)
+        at me.stageguard.sctimetable.PluginMain.onEnable(PluginMain.kt:32)
         at ...
 ```
 

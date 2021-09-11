@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.api.edu_system.`super`
+package me.stageguard.sctimetable.api.edu_system.`super`
 
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder

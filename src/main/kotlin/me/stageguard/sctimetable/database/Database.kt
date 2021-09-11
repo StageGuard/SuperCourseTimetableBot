@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.database
+package me.stageguard.sctimetable.database
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -22,10 +22,10 @@ import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import stageguard.sctimetable.PluginConfig
-import stageguard.sctimetable.PluginMain
-import stageguard.sctimetable.database.model.SchoolTimetables
-import stageguard.sctimetable.database.model.Users
+import me.stageguard.sctimetable.PluginConfig
+import me.stageguard.sctimetable.PluginMain
+import me.stageguard.sctimetable.database.model.SchoolTimetables
+import me.stageguard.sctimetable.database.model.Users
 
 object Database {
 

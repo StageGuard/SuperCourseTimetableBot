@@ -6,13 +6,12 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable
+package me.stageguard.sctimetable.api
 
-import net.mamoe.mirai.console.data.AutoSavePluginData
-import net.mamoe.mirai.console.data.ValueDescription
-import net.mamoe.mirai.console.data.value
+abstract class GeneralApiInterface {
 
-object PluginData : AutoSavePluginData("User") {
-    @ValueDescription("提前几分钟提醒")
-    val advancedTipOffset: MutableMap<Long, Int> by value(mutableMapOf())
 }
+
+data class GeneralUser(
+    val schoolId: String
+)

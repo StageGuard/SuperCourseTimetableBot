@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable
+package me.stageguard.sctimetable
 
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
@@ -17,13 +17,13 @@ import net.mamoe.mirai.utils.MiraiExperimentalApi
 import net.mamoe.mirai.utils.info
 import org.quartz.Scheduler
 import org.quartz.impl.StdSchedulerFactory
-import stageguard.sctimetable.api.edu_system.`super`.SuperCourseApiService
-import stageguard.sctimetable.database.Database
-import stageguard.sctimetable.service.*
+import me.stageguard.sctimetable.api.edu_system.`super`.SuperCourseApiService
+import me.stageguard.sctimetable.database.Database
+import me.stageguard.sctimetable.service.*
 
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
-        id = "stageguard.sctimetable",
+        id = "me.stageguard.sctimetable",
         version = "0.4.4",
         name = "SuperCourseTimetable"
     )

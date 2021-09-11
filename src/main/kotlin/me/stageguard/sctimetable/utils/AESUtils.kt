@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.utils
+package me.stageguard.sctimetable.utils
 
 import java.util.*
 import javax.crypto.Cipher

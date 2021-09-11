@@ -6,7 +6,7 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.api.edu_system.`super`
+package me.stageguard.sctimetable.api.edu_system.`super`
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.*
@@ -16,8 +16,8 @@ import io.ktor.utils.io.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import stageguard.sctimetable.service.TimeProviderService
-import stageguard.sctimetable.utils.Either
+import me.stageguard.sctimetable.service.TimeProviderService
+import me.stageguard.sctimetable.utils.Either
 import java.util.regex.Pattern
 
 /**

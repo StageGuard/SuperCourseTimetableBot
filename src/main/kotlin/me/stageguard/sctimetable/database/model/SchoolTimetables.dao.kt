@@ -6,14 +6,14 @@
  *
  *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
  */
-package stageguard.sctimetable.database.model
+package me.stageguard.sctimetable.database.model
 
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Column
-import stageguard.sctimetable.service.TimeProviderService
+import me.stageguard.sctimetable.service.TimeProviderService
 
 /**
  * SchoolTimetables存储每个学校的某个学期的时间作息表
