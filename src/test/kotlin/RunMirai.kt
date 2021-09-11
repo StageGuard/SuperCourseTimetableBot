@@ -1,4 +1,4 @@
-package stageguard.sctimetable
+package me.stageguard.sctimetable
 
 import net.mamoe.mirai.alsoLogin
 import net.mamoe.mirai.console.MiraiConsole
