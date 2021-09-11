@@ -98,13 +98,14 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
         fun getCourseFromDatabase() = Database.query {
             val courses = Courses(qq)
             val coursesList = mutableListOf<SingleCourse>()
+            val isNextWeek = if (inputDayOfWeek > 7) 1 else 0
             courses.select {
                 (courses.beginYear eq TimeProviderService.currentSemesterBeginYear) and
                         (courses.semester eq TimeProviderService.currentSemester) and
-                        (courses.whichDayOfWeek eq inputDayOfWeek)
+                        (courses.whichDayOfWeek eq if (isNextWeek == 1) 1 else inputDayOfWeek)
             }.forEach {
                 it[courses.weekPeriod].split(" ").forEach { week ->
-                    if (week.toInt() == TimeProviderService.currentWeekPeriod[belongingSchool]) {
+                    if (week.toInt() == TimeProviderService.currentWeekPeriod[belongingSchool]!! + isNextWeek) {
                         coursesList.add(
                             SingleCourse(
                                 it[courses.sectionStart],
@@ -149,7 +150,8 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
     fun startUserNotificationJob(qq: Long, belongingSchool: Int, whichSection: Int? = null) = userNotificationJobs.run {
         if (!this.containsKey(qq)) {
             val schoolTimetable = getSchoolTimetable(belongingSchool)
-            val todayCourses = getUserTodayCourses(qq, belongingSchool,TimeProviderService.currentTimeStamp.dayOfWeek.value)
+            val todayCourses =
+                getUserTodayCourses(qq, belongingSchool, TimeProviderService.currentTimeStamp.dayOfWeek.value)
             //空则表示今天没课或者获取错误
             if (todayCourses.isNotEmpty()) {
                 val tipOffset = PluginData.advancedTipOffset[qq] ?: PluginConfig.advancedTipTime

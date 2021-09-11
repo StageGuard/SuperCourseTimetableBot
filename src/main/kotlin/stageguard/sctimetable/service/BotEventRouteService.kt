@@ -20,7 +20,6 @@ import stageguard.sctimetable.api.edu_system.`super`.LoginInfoData
 import stageguard.sctimetable.database.Database
 import java.lang.management.ManagementFactory
 import com.sun.management.OperatingSystemMXBean
-import net.mamoe.mirai.console.util.MessageUtils.messageContentsSequence
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.MiraiExperimentalApi
@@ -270,12 +269,31 @@ object BotEventRouteService : AbstractPluginManagedService() {
                 }
             }
             finding(Regex("^(.*?)课[表程]")) {
-                val inputFirst = this.message.contentToString().split("课")[0]
+
+                val inputFirst = it.groupValues[1]
+                if (inputFirst.isEmpty()) {
+                    subject.sendMessage("你还没有输入想查询的日期噢！\n 例子：今日课程 或 明日课程 或 周几课程")
+                    return@finding
+                }
+
                 val isFindRecent = inputFirst.contains("周")
-                val whichDayOfWeek =
-                    if (isFindRecent) inputFirst[1].toString().replace("一", "1").replace("二", "2").replace("三", "3")
-                        .replace("四", "4").replace("五", "5").replace("六", "6").replace("天", "7").replace("日", "7")
-                        .toInt() else if (inputFirst == "今") TimeProviderService.currentTimeStamp.dayOfWeek.value else TimeProviderService.currentTimeStamp.dayOfWeek.value + 1
+                val whichDayOfWeek = if (isFindRecent) {
+                    val weekMap = mapOf<String, Int>(
+                        "一" to 1,
+                        "二" to 2,
+                        "三" to 3,
+                        "四" to 4,
+                        "五" to 5,
+                        "六" to 6,
+                        "天" to 7,
+                        "日" to 7
+                    )
+                    weekMap[inputFirst[1].toString()]!!
+                } else {
+                    if (inputFirst == "今") TimeProviderService.currentTimeStamp.dayOfWeek.value else TimeProviderService.currentTimeStamp.dayOfWeek.value + 1
+                }
+
+
                 Database.suspendQuery {
                     val user = User.find { Users.qq eq subject.id }
                     if (!user.empty()) {
@@ -396,7 +414,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                                 "%.2f",
                                 osMxBean.processCpuLoad * 100
                             )
-                        }% / ${String.format("%.2f", osMxBean.processCpuLoad * 100)}%
+                        }% / ${String.format("%.2f", osMxBean.systemCpuLoad * 100)}%
                     - Memory usage / total: ${(osMxBean.totalPhysicalMemorySize - osMxBean.freePhysicalMemorySize) / 1024 / 1024}MB / ${osMxBean.totalPhysicalMemorySize / 1024 / 1024}MB
 
                     This project is a open source project.
