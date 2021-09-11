@@ -16,6 +16,10 @@ import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.nextMessage
+import stageguard.sctimetable.utils.Either.Companion.left
+import stageguard.sctimetable.utils.Either.Companion.onLeft
+import stageguard.sctimetable.utils.Either.Companion.onRight
+import stageguard.sctimetable.utils.Either.Companion.right
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -221,37 +225,35 @@ class InteractiveConversationBuilder(
 
     @Suppress("DuplicatedCode")
     class SelectionLambdaExpression(
-        private val chain: MessageChain
+        val chain: MessageChain
     ) {
-        private var matches = false
+        var matches = false
 
         /**
          * 只有文本消息且消息为这个字符串时执行
          */
         suspend inline operator fun String.invoke(crossinline caseLambda: suspend (String) -> Unit) {
-            when(val content = contentImpl({
-                it.subList(1, it.size).let { single -> single.size == 1 && single[0] is PlainText && single[0].content == this }
-            }) { it.contentToString() }) { is Either.Left -> caseLambda(content.value) }
+            contentImpl({ it.subList(1, it.size).let { single ->
+                single.size == 1 && single[0] is PlainText && single[0].content == this
+            } }) { it.contentToString() }.onRight { caseLambda(it) }
         }
 
         /**
          * 只有文本消息且消息包含这个字符串时执行
          */
         suspend inline infix fun String.containRun(crossinline caseLambda: suspend (String) -> Unit) {
-            when(val content = contentImpl({
-                it.subList(1, it.size).let { single -> single.size == 1 && single[0] is PlainText && single[0].content.contains(this) }
-            }) { it.contentToString() }) { is Either.Left -> {
-                caseLambda(content.value)
-            } }
+            contentImpl({ it.subList(1, it.size).let { single ->
+                single.size == 1 && single[0] is PlainText && single[0].content.contains(this)
+            } }) { it.contentToString() }.onRight { caseLambda(it) }
         }
 
         /**
          * 只有文本消息且消息符合正则表达式时执行
          */
         suspend inline infix fun Regex.matchRun(crossinline caseLambda: suspend (String) -> Unit) {
-            when(val content = contentImpl({
-                it.subList(1, it.size).let { single -> single.size == 1 && single[0] is PlainText && matches(single[0].content) }
-            }) { it.contentToString() }) { is Either.Left -> caseLambda(content.value) }
+            contentImpl({ it.subList(1, it.size).let { single ->
+                single.size == 1 && single[0] is PlainText && matches(single[0].content)
+            } }) { it.contentToString() }.onRight { caseLambda(it) }
         }
 
         /**
@@ -261,25 +263,25 @@ class InteractiveConversationBuilder(
             crossinline checkBlock: (SM) -> Boolean = { true },
             crossinline caseLambda: suspend (SM) -> Unit
         ) {
-            when(val content = contentImpl({
+            contentImpl({
                 it.any { sm -> sm is SM } && run {
                     var satisfied = false
                     it.filterIsInstance<SM>().forEach { sm -> satisfied = checkBlock(sm) }
                     satisfied
                 }
-            }) { it.filterIsInstance<SM>().first(checkBlock) }) { is Either.Left -> caseLambda(content.value) }
+            }) { it.filterIsInstance<SM>().first(checkBlock) }.onRight { caseLambda(it) }
         }
 
         /**
          * 条件的具体实现
          */
-        fun <R> contentImpl(
+        inline fun <reified R> contentImpl(
             condition: (MessageChain) -> Boolean,
             mapBlock: (MessageChain) -> R
-        ) : Either<R, Unit> = if(condition(chain)) {
+        ) : Either<Unit, R> = if(condition(chain)) {
             matches = true
-            Either.Left(mapBlock(chain))
-        } else Either.Right(Unit)
+            Either(mapBlock(chain))
+        } else Either(Unit)
 
         /**
          * 当任何字符都不匹配时执行。
@@ -318,7 +320,7 @@ sealed class QuitConversationExceptions : Exception() {
     class TimeoutException : QuitConversationExceptions()
 }
 
-typealias EIQ = Either<InteractiveConversationBuilder, QuitConversationExceptions>
+typealias EIQ = Either<QuitConversationExceptions, InteractiveConversationBuilder>
 /**
  * 交互式对话的创建器
  *
@@ -351,22 +353,22 @@ suspend fun <T : MessageEvent> T.interactiveConversation(
     eachTryLimit: Int = -1,
     block: suspend InteractiveConversationBuilder.() -> Unit
 ): Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>> {
-    suspend fun executeICB() = try {
+    suspend fun executeICB(): EIQ = try {
         InteractiveConversationBuilder(
             eventContext = this@interactiveConversation,
             coroutineScope = scope,
             tryCountLimitation = eachTryLimit,
             timeoutLimitation = eachTimeLimit,
             conversationBlock = block
-        ).also { it() }.let { Either.Left(it) }
+        ).also { it() }.let { Either.invoke<QuitConversationExceptions, InteractiveConversationBuilder>(it) }
     } catch (ex: Exception) { when(ex) {
-        is TimeoutCancellationException -> Either.Right(QuitConversationExceptions.TimeoutException())
-        else -> Either.Right(ex as QuitConversationExceptions)
+        is TimeoutCancellationException -> Either(QuitConversationExceptions.TimeoutException())
+        else -> Either(ex as QuitConversationExceptions)
     } }
     return if(scope == null) {
-        null to Either.Left(executeICB())
+        null to Either(executeICB())
     } else {
-        scope to Either.Right(scope.async(scope.coroutineContext) { executeICB() })
+        scope to Either.invoke<EIQ, Deferred<EIQ>>(scope.async(scope.coroutineContext) { executeICB() })
     }
 }
 /**
@@ -386,14 +388,10 @@ suspend fun Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>>.exception(
 ) : Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>> {
     if(first != null) {
         first!!.launch(first!!.coroutineContext) {
-            when(val icBuilder = (second as Either.Right).value.await()) {
-                is Either.Right -> failed(icBuilder.value)
-            }
+            second.right.await().onLeft { l -> failed(l) }
         }
     } else {
-        when(val icBuilder = (second as Either.Left).value) {
-            is Either.Right -> failed(icBuilder.value)
-        }
+        second.left.onLeft { l -> failed(l) }
     }
     return this
 }
@@ -436,14 +434,10 @@ suspend fun Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>>.finish(
 ) : Pair<CoroutineScope?, Either<EIQ, Deferred<EIQ>>> {
     if(first != null) {
         first!!.launch(first!!.coroutineContext) {
-            when(val icBuilder = (second as Either.Right).value.await()) {
-                is Either.Left -> success(icBuilder.value.capturedList)
-            }
+            second.right.await().onRight { r -> success(r.capturedList) }
         }
     } else {
-        when(val icBuilder = (second as Either.Left).value) {
-            is Either.Left -> success(icBuilder.value.capturedList)
-        }
+        second.left.onRight { r -> success(r.capturedList) }
     }
     return this
 }

@@ -12,7 +12,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
-import io.ktor.util.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.decodeFromString
@@ -47,6 +46,7 @@ object SuperCourseApiService {
     private const val PHONE_MODEL = "vince" // XiaoMi Redmi 5 Plus
 
     private val client = HttpClient(OkHttp)
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val jSessionIdRegExp = Pattern.compile("JSESSIONID=([0-9A-F]+-[a-z1-9]+);")
     private val serverIdRegexp = Pattern.compile("SERVERID=([0-9a-f|]+);")
@@ -62,7 +62,7 @@ object SuperCourseApiService {
     suspend fun loginViaPassword(
         loginInfo: LoginInfoData,
         cookieBlock: ((LoginCookieData) -> Unit)?
-    ) : Either<LoginReceiptDTO, ErrorLoginReceiptDTO> = loginViaPassword(loginInfo.username, loginInfo.password, cookieBlock)
+    ) : Either<ErrorLoginReceiptDTO, LoginReceiptDTO> = loginViaPassword(loginInfo.username, loginInfo.password, cookieBlock)
 
     /**
      * 通过密码登录超级课表，并返回一个[Either].
@@ -73,7 +73,7 @@ object SuperCourseApiService {
         username: String,
         password: String,
         cookieBlock: ((LoginCookieData) -> Unit)? = null
-    ) : Either<LoginReceiptDTO, ErrorLoginReceiptDTO> = try {
+    ) : Either<ErrorLoginReceiptDTO, LoginReceiptDTO> = try {
         client.post<HttpStatement> {
             url("$BASE_URL/V2/StudentSkip/loginCheckV4.action")
             parameter("account", EncryptionUtils.encrypt(username))
@@ -104,17 +104,16 @@ object SuperCourseApiService {
                     serverIdMatcher.group(1)
                 } else ""
             }))
-            //超级课表的api可真是狗屎，逼我自定义一个Either
             val result = (response.content.readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}")
             if(Pattern.compile("errorStr").matcher(result).find()) {
-                Either.Right(Json { ignoreUnknownKeys = true }.decodeFromString(result))
+                Either(json.decodeFromString(result) as ErrorLoginReceiptDTO)
             } else {
-                Either.Left(Json { ignoreUnknownKeys = true }.decodeFromString(result))
+                Either.invoke<ErrorLoginReceiptDTO, LoginReceiptDTO>(json.decodeFromString(result) as LoginReceiptDTO)
             }
 
         }
     } catch (ex: Exception) {
-        Either.Right(ErrorLoginReceiptDTO(__InternalErrorLoginMsg(ex.toString(),0, 0), 1))
+        Either(ErrorLoginReceiptDTO(__InternalErrorLoginMsg(ex.toString(),0, 0), 1))
     }
 
     /**
@@ -122,14 +121,15 @@ object SuperCourseApiService {
      *
      * 成功则返回[CourseReceiptDTO]，失败则返回[ErrorCourseReceiptDTO]
      */
-    suspend fun getCourses(cookie: LoginCookieData) : Either<CourseReceiptDTO, ErrorCourseReceiptDTO> = getCourses(cookie.jSessionId, cookie.serverId)
+    suspend fun getCourses(cookie: LoginCookieData) : Either<ErrorCourseReceiptDTO, CourseReceiptDTO> =
+        getCourses(cookie.jSessionId, cookie.serverId)
 
     /**
      * 获取课程信息，并返回一个[Either].
      *
      * 成功则返回[CourseReceiptDTO]，失败则返回[ErrorCourseReceiptDTO]
      */
-    suspend fun getCourses(jSessionId: String, serverId: String) : Either<CourseReceiptDTO, ErrorCourseReceiptDTO> = try {
+    suspend fun getCourses(jSessionId: String, serverId: String) : Either<ErrorCourseReceiptDTO, CourseReceiptDTO> = try {
         client.post<HttpStatement> {
             url("$BASE_URL/V2/Course/getCourseTableFromServer.action")
             header("Cookie", "JSESSIONID=$jSessionId;SERVERID=$serverId")
@@ -143,13 +143,13 @@ object SuperCourseApiService {
         }.execute {
             val result = it.content.readUTF8Line() ?: "{\"message\":\"Empty response content.\",\"title\":\"\"}"
             try {
-                Either.Left(Json { ignoreUnknownKeys = true }.decodeFromString(result))
+                Either.invoke<ErrorCourseReceiptDTO, CourseReceiptDTO>(json.decodeFromString(result) as CourseReceiptDTO)
             } catch (error: Exception) {
-                Either.Left(Json { ignoreUnknownKeys = true }.decodeFromString(result))
+                Either.invoke(json.decodeFromString(result) as ErrorCourseReceiptDTO)
             }
         }
     } catch (ex: Exception) {
-        Either.Right(ErrorCourseReceiptDTO("", ex.toString()))
+        Either(ErrorCourseReceiptDTO("", ex.toString()))
     }
 
     fun closeHttpClient() {

@@ -24,7 +24,8 @@ import stageguard.sctimetable.service.RequestHandlerService.handlerChannel
 import stageguard.sctimetable.database.Database
 import stageguard.sctimetable.database.model.*
 import stageguard.sctimetable.utils.AESUtils
-import stageguard.sctimetable.utils.Either
+import stageguard.sctimetable.utils.Either.Companion.onLeft
+import stageguard.sctimetable.utils.Either.Companion.onRight
 
 /**
  * RequestHandlerService 负责处理各种请求，
@@ -53,27 +54,24 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                 this.serverId = it.serverId
                             }
                         }
-                        when(loginReceipt) {
-                            is Either.Left -> {
-                                Database.query { User.new {
-                                    qq = request.qq
-                                    studentId = loginReceipt.value.data.student.studentId.toLong()
-                                    name = loginReceipt.value.data.student.nickName
-                                    schoolId = loginReceipt.value.data.student.schoolId
-                                    account = request.loginInfoData.username
-                                    password = AESUtils.encrypt(request.loginInfoData.password, SuperCourseApiService.pkey)
-                                } }
-                                PluginData.advancedTipOffset[request.qq] = PluginConfig.advancedTipTime
-                                info("User ${request.qq} login successful.")
-                                BotEventRouteService.sendMessageNonBlock(request.qq, "登录成功，正在同步你的课程。。。")
-                                sendRequest(Request.InternalSyncCourseRequestViaCookieDataRequest(request.qq, cookieData))
-                                sendRequest(Request.SyncSchoolTimetableRequest(request.qq))
-                            }
+                        loginReceipt.onRight { r ->
+                            Database.query { User.new {
+                                qq = request.qq
+                                studentId = r.data.student.studentId.toLong()
+                                name = r.data.student.nickName
+                                schoolId = r.data.student.schoolId
+                                account = request.loginInfoData.username
+                                password = AESUtils.encrypt(request.loginInfoData.password, SuperCourseApiService.pkey)
+                            } }
+                            PluginData.advancedTipOffset[request.qq] = PluginConfig.advancedTipTime
+                            info("User ${request.qq} login successful.")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "登录成功，正在同步你的课程。。。")
+                            sendRequest(Request.InternalSyncCourseRequestViaCookieDataRequest(request.qq, cookieData))
+                            sendRequest(Request.SyncSchoolTimetableRequest(request.qq))
+                        }.onLeft { l ->
                             //用户登录请求失败，密码错误或其他错误(网络问题等)
-                            is Either.Right -> {
-                                error("Failed to login user ${request.qq}'s SuperCourse error, reason: ${loginReceipt.value.data.errorStr}")
-                                BotEventRouteService.sendMessageNonBlock(request.qq, "无法登录超级课表，原因：${loginReceipt.value.data.errorStr}")
-                            }
+                            error("Failed to login user ${request.qq}'s SuperCourse error, reason: ${l.data.errorStr}")
+                            BotEventRouteService.sendMessageNonBlock(request.qq, "无法登录超级课表，原因：${l.data.errorStr}")
                         }
                     } else {
                         info("User ${request.qq} has already login and cannot login again.")
@@ -89,14 +87,15 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                         SuperCourseApiService.loginViaPassword(user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey)) {
                             cookieData.jSessionId = it.jSessionId
                             cookieData.serverId = it.serverId
-                        }.also { when(it) {
-                            is Either.Left -> sendRequest(Request.InternalSyncCourseRequestViaCookieDataRequest(request.qq, cookieData))
-                            //用户记录在User的密码有误或者其他问题(网络问题等)
-                            is Either.Right -> {
-                                error("Failed to sync user ${request.qq}'s courses, reason: ${it.value.data.errorStr}")
-                                BotEventRouteService.sendMessageNonBlock(request.qq, "无法同步课程。原因：${it.value.data.errorStr}")
+                        }.also {
+                            it.onRight {
+                                sendRequest(Request.InternalSyncCourseRequestViaCookieDataRequest(request.qq, cookieData))
+                            }.onLeft { l ->
+                                //用户记录在User的密码有误或者其他问题(网络问题等)
+                                error("Failed to sync user ${request.qq}'s courses, reason: ${l.data.errorStr}")
+                                BotEventRouteService.sendMessageNonBlock(request.qq, "无法同步课程。原因：${l.data.errorStr}")
                             }
-                        } }
+                        }
                     } else {
                         error("Failed to sync user ${request.qq}'s courses, reason: User doesn't exist.")
                     }
@@ -109,9 +108,9 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                     courseTable.deleteWhere { (courseTable.beginYear eq TimeProviderService.currentSemesterBeginYear) and (courseTable.semester eq TimeProviderService.currentSemester) }
                     val user = User.find { Users.qq eq request.qq }
                     if(!user.empty()) {
-                        SuperCourseApiService.getCourses(request.cookieData).also { coursesDTO -> when(coursesDTO) {
-                            is Either.Left -> {
-                                coursesDTO.value.data.lessonList.run {
+                        SuperCourseApiService.getCourses(request.cookieData).also { coursesDTO ->
+                            coursesDTO.onRight { r ->
+                                r.data.lessonList.run {
                                     if(isNotEmpty()) {
                                         Database.query { forEach { e -> courseTable.insert { crs ->
                                             crs[courseId] = e.courseId
@@ -142,12 +141,11 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                                         """.trimIndent())
                                     }
                                 }
+                            }.onLeft { l ->
+                                error("Failed to sync user ${request.qq}'s courses, reason: ${l.message}.")
+                                BotEventRouteService.sendMessageNonBlock(request.qq, "无法同步课程。原因：${l.message}")
                             }
-                            is Either.Right -> {
-                                error("Failed to sync user ${request.qq}'s courses, reason: ${coursesDTO.value.message}.")
-                                BotEventRouteService.sendMessageNonBlock(request.qq, "无法同步课程。原因：${coursesDTO.value.message}")
-                            }
-                        } }
+                        }
                     } else {
                         error("Failed to sync user ${request.qq}'s courses, reason: User doesn't exist.")
                     }
@@ -174,45 +172,44 @@ object RequestHandlerService : AbstractPluginManagedService(Dispatchers.IO) {
                 Database.suspendQuery<Unit> {
                     val user = User.find { Users.qq eq request.qq }
                     suspend fun syncFromServer(createNew : Boolean) {
-                        when(val loginDTO = SuperCourseApiService.loginViaPassword(user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey))) {
-                            is Either.Left -> {
-                                val scheduledTimetable = loginDTO.value.data.student.attachmentBO.myTermList.first { termList ->
-                                    termList.beginYear == TimeProviderService.currentSemesterBeginYear && termList.term == TimeProviderService.currentSemester
-                                    //这超级课表是什么傻逼，妈的还带空字符串
-                                }.courseTimeList.courseTimeBO.run {
-                                    if(isNotEmpty()) {
-                                        filter { it.beginTimeStr.isNotEmpty() }.joinToString("|") { time ->
-                                            "${time.beginTimeStr.substring(0..1)}:${time.beginTimeStr.substring(2..3)}-${time.endTimeStr.substring(0..1)}:${time.endTimeStr.substring(2..3)}"
-                                        }
-                                    } else {
-                                        //empty default
-                                        "08:10-08:55|09:05-09:50|10:10-10:55|11:05-11:50|13:40-14:25|14:35-15:20|15:30-16:15|16:25-17:10|18:05-18:50|19:00-19:45|19:55-20:40|20:50-21:35"
-                                    }
-                                }
-                                if(createNew) {
-                                    SchoolTimetable.new {
-                                        schoolId = loginDTO.value.data.student.schoolId
-                                        schoolName = loginDTO.value.data.student.schoolName
-                                        beginYear = TimeProviderService.currentSemesterBeginYear
-                                        semester = TimeProviderService.currentSemester
-                                        scheduledTimeList = scheduledTimetable
-                                        timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
-                                        weekPeriodWhenAdd = 1
+                        SuperCourseApiService.loginViaPassword(
+                            user.first().account, AESUtils.decrypt(user.first().password, SuperCourseApiService.pkey)
+                        ).onRight { r ->
+                            val scheduledTimetable = r.data.student.attachmentBO.myTermList.first { termList ->
+                                termList.beginYear == TimeProviderService.currentSemesterBeginYear && termList.term == TimeProviderService.currentSemester
+                                //这超级课表是什么傻逼，妈的还带空字符串
+                            }.courseTimeList.courseTimeBO.run {
+                                if(isNotEmpty()) {
+                                    filter { it.beginTimeStr.isNotEmpty() }.joinToString("|") { time ->
+                                        "${time.beginTimeStr.substring(0..1)}:${time.beginTimeStr.substring(2..3)}-${time.endTimeStr.substring(0..1)}:${time.endTimeStr.substring(2..3)}"
                                     }
                                 } else {
-                                    SchoolTimetable.find {
-                                        (SchoolTimetables.schoolId eq user.first().schoolId) and
-                                        (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
-                                        (SchoolTimetables.semester eq TimeProviderService.currentSemester)
-                                    }.first().scheduledTimeList = scheduledTimetable
+                                    //empty default
+                                    "08:10-08:55|09:05-09:50|10:10-10:55|11:05-11:50|13:40-14:25|14:35-15:20|15:30-16:15|16:25-17:10|18:05-18:50|19:00-19:45|19:55-20:40|20:50-21:35"
                                 }
-                                TimeProviderService.immediateUpdateSchoolWeekPeriod()
                             }
+                            if(createNew) {
+                                SchoolTimetable.new {
+                                    schoolId = r.data.student.schoolId
+                                    schoolName = r.data.student.schoolName
+                                    beginYear = TimeProviderService.currentSemesterBeginYear
+                                    semester = TimeProviderService.currentSemester
+                                    scheduledTimeList = scheduledTimetable
+                                    timeStampWhenAdd = TimeProviderService.currentTimeStamp.toString()
+                                    weekPeriodWhenAdd = 1
+                                }
+                            } else {
+                                SchoolTimetable.find {
+                                    (SchoolTimetables.schoolId eq user.first().schoolId) and
+                                            (SchoolTimetables.beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                                            (SchoolTimetables.semester eq TimeProviderService.currentSemester)
+                                }.first().scheduledTimeList = scheduledTimetable
+                            }
+                            TimeProviderService.immediateUpdateSchoolWeekPeriod()
+                        }.onLeft { l ->
                             //用户记录在User的密码有误或者其他问题(网络问题等)
-                            is Either.Right -> {
-                                error("Failed to sync user ${request.qq}'s school timetable, reason: ${loginDTO.value.data.errorStr}")
-                                BotEventRouteService.sendMessageNonBlock(request.qq,"无法从服务器同步学校时间表信息，可能是因为你已经修改了超级课表的密码。\n具体原因：${loginDTO.value.data.errorStr}")
-                            }
+                            error("Failed to sync user ${request.qq}'s school timetable, reason: ${l.data.errorStr}")
+                            BotEventRouteService.sendMessageNonBlock(request.qq,"无法从服务器同步学校时间表信息，可能是因为你已经修改了超级课表的密码。\n具体原因：${l.data.errorStr}")
                         }
                     }
                     if(!user.empty()) {
