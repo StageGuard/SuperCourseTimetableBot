@@ -268,7 +268,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     } else subject.sendMessage("你还没有登录超级课表，无法同步时间表")
                 }
             }
-            finding(Regex("^(.*?)课[表程]")) {
+            finding(Regex("^(.{0,2})课[表程]")) {
 
                 val inputFirst = it.groupValues[1]
                 if (inputFirst.isEmpty()) {
