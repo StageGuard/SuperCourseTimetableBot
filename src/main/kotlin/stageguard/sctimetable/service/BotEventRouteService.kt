@@ -268,31 +268,23 @@ object BotEventRouteService : AbstractPluginManagedService() {
                     } else subject.sendMessage("你还没有登录超级课表，无法同步时间表")
                 }
             }
-            finding(Regex("^(.*?)课[表程]")) {
-
-                val inputFirst = it.groupValues[1]
-                if (inputFirst.isEmpty()) {
-                    subject.sendMessage("你还没有输入想查询的日期噢！\n 例子：今日课程 或 明日课程 或 周几课程")
-                    return@finding
+            finding(Regex("^((?:星期|周)(.*)|([今明])[天日])课[表程]")) { mr ->
+                val whichDayOfWeek = when {
+                    mr.groupValues[2] == "一" -> 1
+                    mr.groupValues[2] == "二" -> 2
+                    mr.groupValues[2] == "三" -> 3
+                    mr.groupValues[2] == "四" -> 4
+                    mr.groupValues[2] == "五" -> 5
+                    mr.groupValues[2] == "六" -> 6
+                    mr.groupValues[2] == "天" -> 7
+                    mr.groupValues[2] == "日" -> 7
+                    mr.groupValues[3] == "今" -> TimeProviderService.currentTimeStamp.dayOfWeek.value
+                    mr.groupValues[3] == "明" -> TimeProviderService.currentTimeStamp.dayOfWeek.value + 1
+                    else -> {
+                        subject.sendMessage("你还没有输入想查询的日期或格式有误！\n 例子：今日课程 或 明日课程 或 周几课程")
+                        return@finding
+                    }
                 }
-
-                val isFindRecent = inputFirst.contains("周")
-                val whichDayOfWeek = if (isFindRecent) {
-                    val weekMap = mapOf<String, Int>(
-                        "一" to 1,
-                        "二" to 2,
-                        "三" to 3,
-                        "四" to 4,
-                        "五" to 5,
-                        "六" to 6,
-                        "天" to 7,
-                        "日" to 7
-                    )
-                    weekMap[inputFirst[1].toString()]!!
-                } else {
-                    if (inputFirst == "今") TimeProviderService.currentTimeStamp.dayOfWeek.value else TimeProviderService.currentTimeStamp.dayOfWeek.value + 1
-                }
-
 
                 Database.suspendQuery {
                     val user = User.find { Users.qq eq subject.id }
@@ -306,7 +298,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                                 whichDayOfWeek
                             )
                         var index = 1
-                        subject.sendMessage(if (courses.isEmpty()) "${inputFirst}没有课程。" else courses.joinToString("\n") {
+                        subject.sendMessage(if (courses.isEmpty()) "${mr.groupValues[1]}没有课程。" else courses.joinToString("\n") {
                             "${index++}. " + it.courseName + "(${
                                 schoolTimetable[it.startSection - 1].first.let { stamp ->
                                     "${(stamp - (stamp % 60)) / 60}:${(stamp % 60).let { min -> if (min < 10) ("0$min") else min }}"
@@ -317,7 +309,7 @@ object BotEventRouteService : AbstractPluginManagedService() {
                                 }
                             })在${it.locale}"
                         })
-                    } else subject.sendMessage("你还没有登录超级课表，无法查看${inputFirst}课程")
+                    } else subject.sendMessage("你还没有登录超级课表，无法查看${mr.groupValues[1]}课程")
                 }
             }
             finding(Regex("^删除(用户|账户|账号)")) {
