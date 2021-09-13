@@ -124,7 +124,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
         return userCourses.run {
             if (this.containsKey(qq)) this[qq]!!.run {
                 filter {
-                    it.semester == TimeProviderService.currentSemester && it.beginYear == TimeProviderService.currentSemesterBeginYear
+                    it.semester == TimeProviderService.currentSemester && it.beginYear == TimeProviderService.currentSemesterBeginYear && inputDayOfWeek == TimeProviderService.currentTimeStamp.dayOfWeek.value
                 }.run {
                     if (isEmpty()) getCourseFromDatabase().also { forEach { userCourses[qq]!!.add(it) } } else this
                 }
