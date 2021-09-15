@@ -2,14 +2,18 @@ package me.stageguard.sctimetable.service.messageRoute
 
 import kotlinx.coroutines.CoroutineScope
 import me.stageguard.sctimetable.database.Database
+import me.stageguard.sctimetable.database.model.Courses
 import me.stageguard.sctimetable.database.model.User
 import me.stageguard.sctimetable.database.model.Users
 import me.stageguard.sctimetable.service.ScheduleListenerService
+import me.stageguard.sctimetable.service.SingleCourse
 import me.stageguard.sctimetable.service.TimeProviderService
 import net.mamoe.mirai.event.events.FriendMessageEvent
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
 
 suspend fun FriendMessageEvent.queryCourse(matchResult: MatchResult) {
-    val whichDayOfWeek = when {
+    val whichDay = when {
         matchResult.groupValues[2] == "一" -> 1
         matchResult.groupValues[2] == "二" -> 2
         matchResult.groupValues[2] == "三" -> 3
@@ -26,17 +30,36 @@ suspend fun FriendMessageEvent.queryCourse(matchResult: MatchResult) {
         }
     }
 
+    fun queryFromDatabase(
+        qq: Long, belongingSchool: Int, inputDayOfWeek: Int
+    ) = Courses(qq).run {
+        val isNextWeek = if(inputDayOfWeek > 7) 1 else 0
+        select {
+            (beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                    (semester eq TimeProviderService.currentSemester) and
+                    (whichDayOfWeek eq if(inputDayOfWeek > 7) inputDayOfWeek % 7 else inputDayOfWeek)
+        }.filter {
+            val weeks = it[weekPeriod].split(" ").map { w -> w.toInt() }
+            weeks.contains(TimeProviderService.currentWeekPeriod.getOrDefault(belongingSchool, -1) + isNextWeek)
+        }.map {
+            SingleCourse(
+                it[sectionStart],
+                it[sectionEnd],
+                it[courseName],
+                it[teacherName],
+                it[locale],
+                TimeProviderService.currentSemester,
+                TimeProviderService.currentSemesterBeginYear
+            )
+        }
+    }
+
     Database.suspendQuery {
         val user = User.find { Users.qq eq subject.id }
         if (!user.empty()) {
             val schoolTimetable = ScheduleListenerService.getSchoolTimetable(user.first().schoolId)
 
-            val courses =
-                ScheduleListenerService.getUserTodayCourses(
-                    subject.id,
-                    user.first().schoolId,
-                    whichDayOfWeek
-                )
+            val courses = queryFromDatabase(subject.id, user.first().schoolId, whichDay)
             var index = 1
             subject.sendMessage(if (courses.isEmpty()) "${matchResult.groupValues[1]}没有课程。" else courses.joinToString("\n") {
                 "${index++}. " + it.courseName + "(${
