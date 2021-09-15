@@ -148,8 +148,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
     fun startUserNotificationJob(qq: Long, belongingSchool: Int, whichSection: Int? = null) = userNotificationJobs.run {
         if (!this.containsKey(qq)) {
             val schoolTimetable = getSchoolTimetable(belongingSchool)
-            val todayCourses =
-                getUserTodayCourses(qq, belongingSchool)
+            val todayCourses = getUserTodayCourses(qq, belongingSchool).sortedBy { it.startSection }
             //空则表示今天没课或者获取错误
             if (todayCourses.isNotEmpty()) {
                 val tipOffset = PluginData.advancedTipOffset[qq] ?: PluginConfig.advancedTipTime
