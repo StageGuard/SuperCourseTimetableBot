@@ -93,18 +93,17 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
         verbose("removeSchoolTimetable(schoolId=$schoolId)")
     }
 
-    fun getUserTodayCourses(qq: Long, belongingSchool: Int, inputDayOfWeek: Int): List<SingleCourse> {
+    fun getUserTodayCourses(qq: Long, belongingSchool: Int): List<SingleCourse> {
         fun getCourseFromDatabase() = Database.query {
             val courses = Courses(qq)
             val coursesList = mutableListOf<SingleCourse>()
-            val isNextWeek = if (inputDayOfWeek > 7) 1 else 0
             courses.select {
                 (courses.beginYear eq TimeProviderService.currentSemesterBeginYear) and
                         (courses.semester eq TimeProviderService.currentSemester) and
-                        (courses.whichDayOfWeek eq if (isNextWeek == 1) 1 else inputDayOfWeek)
+                        (courses.whichDayOfWeek eq TimeProviderService.currentTimeStamp.dayOfWeek.value)
             }.forEach {
                 it[courses.weekPeriod].split(" ").forEach { week ->
-                    if (week.toInt() == TimeProviderService.currentWeekPeriod[belongingSchool]!! + isNextWeek) {
+                    if (week.toInt() == TimeProviderService.currentWeekPeriod[belongingSchool]) {
                         coursesList.add(
                             SingleCourse(
                                 it[courses.sectionStart],
@@ -124,9 +123,9 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
         return userCourses.run {
             if (this.containsKey(qq)) this[qq]!!.run {
                 filter {
-                    it.semester == TimeProviderService.currentSemester && it.beginYear == TimeProviderService.currentSemesterBeginYear && inputDayOfWeek == TimeProviderService.currentTimeStamp.dayOfWeek.value
+                    it.semester == TimeProviderService.currentSemester && it.beginYear == TimeProviderService.currentSemesterBeginYear
                 }.run {
-                    if (isEmpty()) getCourseFromDatabase().also { forEach { userCourses[qq]!!.add(it) } } else this
+                    ifEmpty { getCourseFromDatabase().also { forEach { userCourses[qq]!!.add(it) } } }
                 }
             } else getCourseFromDatabase().also { this[qq] = it.toMutableList() }
         }
@@ -150,7 +149,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
         if (!this.containsKey(qq)) {
             val schoolTimetable = getSchoolTimetable(belongingSchool)
             val todayCourses =
-                getUserTodayCourses(qq, belongingSchool, TimeProviderService.currentTimeStamp.dayOfWeek.value)
+                getUserTodayCourses(qq, belongingSchool)
             //空则表示今天没课或者获取错误
             if (todayCourses.isNotEmpty()) {
                 val tipOffset = PluginData.advancedTipOffset[qq] ?: PluginConfig.advancedTipTime
@@ -222,7 +221,7 @@ object ScheduleListenerService : AbstractPluginManagedService(Dispatchers.IO) {
     /**
      * 在学校当前周数更新时调用
      *
-     * @see Request.SyncSchoolWeekPeriodRequest
+     * @see Request.SyncSchoolWeekPeriod
      */
     fun onChangeSchoolWeekPeriod(schoolId: Int) = launch(PluginMain.coroutineContext) {
         info("onChangeSchoolWeekPeriod(schoolId=$schoolId)")
