@@ -2,7 +2,7 @@
 
 一个基于 [mirai](https://github.com/mamoe/mirai/) 和 [mirai-console](https://github.com/mamoe/mirai-console) 的 超级课程表 提醒 mirai-console 插件。
 
-![Gradle CI Status](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/workflows/Gradle%20CI/badge.svg) [![CodeFactor](https://www.codefactor.io/repository/github/konnyakucamp/supercoursetimetablebot/badge)](https://www.codefactor.io/repository/github/konnyakucamp/supercoursetimetablebot)
+![Gradle CI Status](https://github.com/StageGuard/SuperCourseTimetableBot/workflows/Gradle%20CI/badge.svg) [![CodeFactor](https://www.codefactor.io/repository/github/stageguard/supercoursetimetablebot/badge)](https://www.codefactor.io/repository/github/stageguard/supercoursetimetablebot)
 ## 特性
 
 <img align="right" src="static/screenshot1.png" height="300">
@@ -48,7 +48,7 @@
 SuperCourseTimetableBot 是**基于 `mirai-core 2.x` 版本和 `mirai-console 2.x` 版本的插件，不兼容 1.x 版本**。
 
 1. 运行一个新的或使用现有的 MySQL 或 MariaDB 数据库，在数据库中新建一个 database，名称随意。
-2. 在 [Releases](https://github.com/KonnyakuCamp/SuperCourseTimetableBot/releases/) 中下载 `SCTimetableBot-x.x.mirai.jar` 将其放入 mirai-console 的 插件文件夹下。
+2. 在 [Releases](https://github.com/StageGuard/SuperCourseTimetableBot/releases/) 中下载 `SCTimetableBot-x.x.mirai.jar` 将其放入 mirai-console 的 插件文件夹下。
 3. 启动 mirai-console， 会有如下提示：
 
 ```
@@ -156,7 +156,7 @@ SuperCourseTimetableBot 插件将会在 `1.0` 版本允许动态适配不同教�
 
 ```
 SuperCourseTimetableBot
-Copyright (C) 2020-2021 The KonnyakuCamp Team
+Copyright (C) 2020-2021 StageGuard
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published

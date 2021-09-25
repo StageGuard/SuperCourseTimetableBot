@@ -1,6 +1,13 @@
+/*
+ * Copyright 2020-2021 StageGuard.
+ *
+ *  此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
+ *  Use of this source code is governed by the GNU AGPLv3 license that can be found through the following link.
+ *
+ *  https://github.com/KonnyakuCamp/SuperCourseTimetableBot/blob/main/LICENSE
+ */
 package me.stageguard.sctimetable.service.messageRoute
 
-import kotlinx.coroutines.CoroutineScope
 import me.stageguard.sctimetable.database.Database
 import me.stageguard.sctimetable.database.model.Courses
 import me.stageguard.sctimetable.database.model.User
@@ -11,6 +18,30 @@ import me.stageguard.sctimetable.service.TimeProviderService
 import net.mamoe.mirai.event.events.FriendMessageEvent
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
+
+fun queryFromDatabase(
+    qq: Long, belongingSchool: Int, inputDayOfWeek: Int
+) = Courses(qq).run {
+    val isNextWeek = if(inputDayOfWeek > 7) 1 else 0
+    select {
+        (beginYear eq TimeProviderService.currentSemesterBeginYear) and
+                (semester eq TimeProviderService.currentSemester) and
+                (whichDayOfWeek eq if(inputDayOfWeek > 7) inputDayOfWeek % 7 else inputDayOfWeek)
+    }.filter {
+        val weeks = it[weekPeriod].split(" ").map { w -> w.toInt() }
+        weeks.contains(TimeProviderService.currentWeekPeriod.getOrDefault(belongingSchool, -1) + isNextWeek)
+    }.sortedBy { it[sectionStart] }.map {
+        SingleCourse(
+            it[sectionStart],
+            it[sectionEnd],
+            it[courseName],
+            it[teacherName],
+            it[locale],
+            TimeProviderService.currentSemester,
+            TimeProviderService.currentSemesterBeginYear
+        )
+    }
+}
 
 suspend fun FriendMessageEvent.queryCourse(matchResult: MatchResult) {
     val whichDay = when {
@@ -27,30 +58,6 @@ suspend fun FriendMessageEvent.queryCourse(matchResult: MatchResult) {
         else -> {
             subject.sendMessage("你还没有输入想查询的日期或格式有误！\n 例子：今日课程 或 明日课程 或 周几课程")
             return
-        }
-    }
-
-    fun queryFromDatabase(
-        qq: Long, belongingSchool: Int, inputDayOfWeek: Int
-    ) = Courses(qq).run {
-        val isNextWeek = if(inputDayOfWeek > 7) 1 else 0
-        select {
-            (beginYear eq TimeProviderService.currentSemesterBeginYear) and
-                    (semester eq TimeProviderService.currentSemester) and
-                    (whichDayOfWeek eq if(inputDayOfWeek > 7) inputDayOfWeek % 7 else inputDayOfWeek)
-        }.filter {
-            val weeks = it[weekPeriod].split(" ").map { w -> w.toInt() }
-            weeks.contains(TimeProviderService.currentWeekPeriod.getOrDefault(belongingSchool, -1) + isNextWeek)
-        }.map {
-            SingleCourse(
-                it[sectionStart],
-                it[sectionEnd],
-                it[courseName],
-                it[teacherName],
-                it[locale],
-                TimeProviderService.currentSemester,
-                TimeProviderService.currentSemesterBeginYear
-            )
         }
     }
 

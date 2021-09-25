@@ -6,7 +6,6 @@
  *
  *  https://github.com/mamoe/mirai/blob/master/LICENSE
  */
-
 @file:Suppress("NOTHING_TO_INLINE", "unused")
 
 package me.stageguard.sctimetable.utils
