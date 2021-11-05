@@ -34,7 +34,7 @@ suspend fun FriendMessageEvent.status() {
             }% / ${String.format("%.2f", osMxBean.systemCpuLoad * 100)}%
                     - Memory usage / total: ${(osMxBean.totalPhysicalMemorySize - osMxBean.freePhysicalMemorySize) / 1024 / 1024}MB / ${osMxBean.totalPhysicalMemorySize / 1024 / 1024}MB
 
-                    This project is a open source project.
+                    This project is an open source project.
                     You can visit https://github.com/KonnyakuCamp/SuperCourseTimetableBot for more details.
                 """.trimIndent()
         )
