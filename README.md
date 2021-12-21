@@ -47,43 +47,48 @@
 
 SuperCourseTimetableBot 是**基于 `mirai-core 2.x` 版本和 `mirai-console 2.x` 版本的插件，不兼容 1.x 版本**。
 
-1. 运行一个新的或使用现有的 MySQL 或 MariaDB 数据库，在数据库中新建一个 database，名称随意。
+1. 运行一个新的或使用现有的 MySQL, MariaDB 或 SQLite 数据库。
 2. 在 [Releases](https://github.com/StageGuard/SuperCourseTimetableBot/releases/) 中下载 `SCTimetableBot-x.x.mirai.jar` 将其放入 mirai-console 的 插件文件夹下。
-3. 启动 mirai-console， 会有如下提示：
+3. 插件默认使用 SQLite 嵌入式数据库，启动 mirai-console，会有如下提示。
 
 ```
-2020-12-19 12:28:20 E/SuperCourseTimetable: me.stageguard.sctimetable.database.InvalidDatabaseConfigException: Database password is not set in config file SG.SCTimeTableBotConfig.
-me.stageguard.sctimetable.database.InvalidDatabaseConfigException: Database password is not set in config file SG.SCTimeTableBotConfig.
-        at me.stageguard.sctimetable.database.Database.hikariDataSourceProvider(Database.kt:75)
-        at me.stageguard.sctimetable.database.Database.connect(Database.kt:43)
-        at me.stageguard.sctimetable.PluginMain.onEnable(PluginMain.kt:32)
-        at ...
+2021-12-21 11:18:41 I/SuperCourseTimetable: Plugin loaded
+2021-12-21 11:18:41 I/SuperCourseTimetable: Database is connected.
+2021-12-21 11:18:41 I/SuperCourseTimetable: Waiting target Bot 123456789 goes online...
 ```
 
 4. 停止运行 mirai-console，进入 SuperCourseTimetableBot 配置文件 `config/SuperCourseTimetable/SG.SCTimeTableBotConfig.yml`，按照如下提示修改配置。
 
 ```yaml
-# 用于工作的BOT的QQ号，只有这个 Bot 上线后 SuperCourseTimetableBot 才会开始工作。
+# 用于工作的BOT的QQ号
 qq: 123456789
 # 默认提前多长时间提醒(单位：分钟)。
 # 此值会在用户第一次被添加进数据库时设置给这个用户。
 # 注意：如果你修改了这个值，在修改之前已经被设置的用户和自己设定值的用户不会受到影响。
 advancedTipTime: 15
-database: 
-  # MariaDB 或 MySQL 数据库的地址.
+# 使用的数据库类型，支持 MySQL / MariaDB / SQLite
+# 填 `mysql` 表示使用 MySQL 或 MariaDB。
+# 填 `sqlite` 表示使用 SQLite。
+# 填其他字符为无效选项。
+# 当使用其中一个数据库类型时，另一个数据库配置不会生效。
+database: sqlite
+# MySQL / MariaDB 数据库配置。
+# 若使用此数据库类型，请先手动创建数据库：
+# create database `sctimetabledb`;
+# 或其他你在下方 table 中指定的数据库名称。
+mysqlConfig:
   address: localhost
-  # 数据库登入用户.
   user: root
-  # 数据库登入密码，删掉''后修改
   password: ''
-  # 填入第一步你创建的数据库的名称。
-  # 用户的数据都会被存储在这个数据库里。
   table: sctimetabledb
-  # 最大连接数，非特殊情况不需要修改。
   maximumPoolSize: 10
+# SQLite 数据库配置。
+sqliteConfig:
+  # SQLite 数据库文件。
+  file: sctimetable.db
 ```
 
-5. 重新运行 mirai-console，登录在第四部配置中指定的账号，SuperCourseTimetableBot 会输出如下提示：
+5. 重新运行 mirai-console，登录在第四步配置中指定的账号，SuperCourseTimetableBot 会输出如下提示：
 
 ```
 2020-12-19 12:39:07 I/SuperCourseTimetable: TimeProviderService: Job YearUpdater is executed. (currentYear -> 2020)
@@ -94,7 +99,7 @@ database:
 
 这时 SuperCourseTimetableBot 就已经成功工作了。
 
-> 注意：请确保运行 mirai-console 宿主机的时区是 `Asia/Shanghai` 并已同步北京时间！
+> 注意：请确保运行 mirai-console 宿主机的时区和数据库时区是 `Asia/Shanghai` 并已同步北京时间！详见 [#4](https://github.com/StageGuard/SuperCourseTimetableBot/issues/4) 。
 
 ## 稳定性
 
@@ -131,7 +136,7 @@ SuperCourseTimetableBot 并未经过长期运行测试，对于其 `Quartz` 任�
 - [x] 手动修改时间表
 - [x] 在时间表被修改时通知本校其他用户
 - [ ] 支持手动添加课程(补课或永久调整的课程)
-- [ ] 使用 `Mozilla Rhino` 通过动态 `JavaScript` 来适配不同的教务系统。
+- [ ] ~~使用 `Mozilla Rhino` 通过动态 `JavaScript` 来适配不同的教务系统~~
 
 ## 开发计划
 
