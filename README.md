@@ -29,7 +29,7 @@
 
 - #### 数据库存储数据
 
-使用 [MySQL](https://www.mysql.com/) 或 [MariaDB](https://mariadb.org/) 存储用户的数据，当用户数量较多时依然保持良好的数据读取性能。
+使用 [MySQL](https://www.mysql.com/), [MariaDB](https://mariadb.org/) 或 [SQLite](https://www.sqlite.org/index.html) 存储用户的数据，当用户数量较多时依然保持良好的数据读取性能。
 
 ## 使用
 
