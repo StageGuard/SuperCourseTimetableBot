@@ -14,6 +14,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import me.stageguard.sctimetable.service.TimeProviderService
@@ -36,6 +37,7 @@ data class LoginInfoData(
     val password: String
 )
 
+@ExperimentalSerializationApi
 object SuperCourseApiService {
 
     private const val BASE_URL: String = "http://120.55.151.61"
@@ -106,9 +108,13 @@ object SuperCourseApiService {
             }))
             val result = (response.content.readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}")
             if(Pattern.compile("errorStr").matcher(result).find()) {
-                Either(json.decodeFromString(result) as ErrorLoginReceiptDTO)
+                Either(try {
+                    json.decodeFromString(result)
+                } catch (ignored: Exception) {
+                    ErrorLoginReceiptDTO(__InternalErrorLoginMsg(result), 1)
+                } )
             } else {
-                Either.invoke<ErrorLoginReceiptDTO, LoginReceiptDTO>(json.decodeFromString(result) as LoginReceiptDTO)
+                Either.invoke<ErrorLoginReceiptDTO, LoginReceiptDTO>(json.decodeFromString<LoginReceiptDTO>(result))
             }
 
         }
@@ -143,13 +149,17 @@ object SuperCourseApiService {
         }.execute {
             val result = it.content.readUTF8Line() ?: "{\"message\":\"Empty response content.\",\"title\":\"\"}"
             try {
-                Either.invoke<ErrorCourseReceiptDTO, CourseReceiptDTO>(json.decodeFromString(result) as CourseReceiptDTO)
+                Either.invoke<ErrorCourseReceiptDTO, CourseReceiptDTO>(json.decodeFromString<CourseReceiptDTO>(result))
             } catch (error: Exception) {
-                Either.invoke(json.decodeFromString(result) as ErrorCourseReceiptDTO)
+                try {
+                    Either.invoke(json.decodeFromString(result))
+                } catch (ex: Exception) {
+                    Either.invoke(ErrorCourseReceiptDTO("decode error", result))
+                }
             }
         }
     } catch (ex: Exception) {
-        Either(ErrorCourseReceiptDTO("", ex.toString()))
+        Either(ErrorCourseReceiptDTO("internal error", ex.toString()))
     }
 
     fun closeHttpClient() {
