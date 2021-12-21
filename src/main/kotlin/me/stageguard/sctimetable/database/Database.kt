@@ -11,6 +11,7 @@ package me.stageguard.sctimetable.database
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
+import me.stageguard.sctimetable.*
 import net.mamoe.mirai.utils.error
 import net.mamoe.mirai.utils.info
 import net.mamoe.mirai.utils.verbose
@@ -22,10 +23,11 @@ import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import me.stageguard.sctimetable.PluginConfig
-import me.stageguard.sctimetable.PluginMain
 import me.stageguard.sctimetable.database.model.SchoolTimetables
 import me.stageguard.sctimetable.database.model.Users
+import net.mamoe.mirai.console.util.ConsoleExperimentalApi
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import java.sql.Connection
 
 object Database {
 
@@ -35,7 +37,7 @@ object Database {
     }
 
     private lateinit var db : Database
-    private lateinit var hikariSource: HikariDataSource
+    private var hikariSource: HikariDataSource? = null
     private var connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
 
     fun <T> query(block: (Transaction) -> T) : T? = if(connectionStatus == ConnectionStatus.DISCONNECTED) {
@@ -49,11 +51,16 @@ object Database {
     } else newSuspendedTransaction(context = Dispatchers.IO, db = db) { block(this) }
 
     fun connect() {
-        db = Database.connect(hikariDataSourceProvider().also {
-            hikariSource = it
-        })
+        db = when (PluginConfig.database) {
+            "mysql" -> Database.connect(hikariDataSourceProvider(PluginConfig.mysqlConfig))
+            "sqlite" -> {
+                TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
+                Database.connect("jdbc:sqlite:${PluginMain.dataFolder}/${PluginConfig.sqliteConfig.file}", "org.sqlite.JDBC")
+            }
+            else -> throw InvalidDatabaseConfigException("未知的数据库类型或数据库配置未找到：${PluginConfig.database}")
+        }
         connectionStatus = ConnectionStatus.CONNECTED
-        PluginMain.logger.info { "Database ${PluginConfig.database.table} is connected." }
+        PluginMain.logger.info { "Database is connected." }
         initDatabase()
     }
 
@@ -71,28 +78,29 @@ object Database {
 
     fun close() {
         connectionStatus = ConnectionStatus.DISCONNECTED
-        hikariSource.closeQuietly()
+        hikariSource?.closeQuietly()
     }
 
-    private fun hikariDataSourceProvider() : HikariDataSource = HikariDataSource(HikariConfig().apply {
+    @OptIn(ConsoleExperimentalApi::class)
+    private fun hikariDataSourceProvider(config: MySQLorMariaDB) : HikariDataSource = HikariDataSource(HikariConfig().apply {
         when {
-            PluginConfig.database.address == "" -> throw InvalidDatabaseConfigException("Database address is not set in config file ${PluginConfig.saveName}.")
-            PluginConfig.database.table == "" -> {
+            config.address == "" -> throw InvalidDatabaseConfigException("Database address is not set in config file ${PluginConfig.saveName}.")
+            config.table == "" -> {
                 PluginMain.logger.warning { "Database table is not set in config file ${PluginConfig.saveName} and now it will be default value 'sctimetabledb'." }
-                PluginConfig.database.table = "sctimetabledb"
+                config.table = "sctimetabledb"
             }
-            PluginConfig.database.user == "" -> throw InvalidDatabaseConfigException("Database user is not set in config file ${PluginConfig.saveName}.")
-            PluginConfig.database.password == "" -> throw InvalidDatabaseConfigException("Database password is not set in config file ${PluginConfig.saveName}.")
-            PluginConfig.database.maximumPoolSize == null -> {
+            config.user == "" -> throw InvalidDatabaseConfigException("Database user is not set in config file ${PluginConfig.saveName}.")
+            config.password == "" -> throw InvalidDatabaseConfigException("Database password is not set in config file ${PluginConfig.saveName}.")
+            config.maximumPoolSize == null -> {
                 PluginMain.logger.warning { "Database maximumPoolSize is not set in config file ${PluginConfig.saveName} and now it will be default value 10." }
-                PluginConfig.database.maximumPoolSize = 10
+                config.maximumPoolSize = 10
             }
         }
-        jdbcUrl         = "jdbc:mysql://${PluginConfig.database.address}/${PluginConfig.database.table}"
+        jdbcUrl         = "jdbc:mysql://${config.address}/${config.table}"
         driverClassName = "com.mysql.cj.jdbc.Driver"
-        username        = PluginConfig.database.user
-        password        = PluginConfig.database.password
-        maximumPoolSize = PluginConfig.database.maximumPoolSize!!
+        username        = config.user
+        password        = config.password
+        maximumPoolSize = config.maximumPoolSize!!
         poolName        = "SCTimetableDB Pool"
     })
 

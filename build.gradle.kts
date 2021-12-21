@@ -20,6 +20,7 @@ val hikariVersion = "5.0.0"
 val mysqlVersion = "8.0.25"
 val quartzVersion = "2.3.2"
 val miraiSlf4jBridgeVersion = "1.2.0"
+val sqliteVersion = "3.36.0.3"
 
 dependencies {
     testImplementation(kotlin("test-junit5"))
@@ -32,6 +33,7 @@ dependencies {
     implementation("mysql:mysql-connector-java:$mysqlVersion")
     implementation("org.quartz-scheduler:quartz:$quartzVersion")
     implementation("net.mamoe:mirai-slf4j-bridge:$miraiSlf4jBridgeVersion")
+    implementation("org.xerial:sqlite-jdbc:$sqliteVersion")
     //implementation("org.slf4j:slf4j-simple:1.7.1")
 }
 

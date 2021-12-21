@@ -24,11 +24,32 @@ object PluginConfig : AutoSavePluginConfig("SG.SCTimeTableBotConfig") {
         注意：如果你修改了这个值，在修改之前已经被设置的用户和自己设定值的用户不会受到影响。
     """)
     val advancedTipTime by value(15)
-    val database by value<DatabaseConfig>()
+    @ValueDescription("""
+        使用的数据库类型，支持 MySQL / MariaDB / SQLite
+        填 `mysql` 表示使用 MySQL 或 MariaDB。
+        填 `sqlite` 表示使用 SQLite。
+        填其他字符为无效选项。
+        当使用其中一个数据库类型时，另一个数据库配置不会生效。
+    """)
+    val database by value("sqlite")
+    @ValueDescription("""
+        MySQL / MariaDB 数据库配置。
+    """)
+    val mysqlConfig by value(MySQLorMariaDB())
+    @ValueDescription("""
+        SQLite 数据库配置。
+    """)
+    val sqliteConfig by value(SQLite())
 }
 
 @Serializable
-data class DatabaseConfig(
+data class SQLite(
+    @ValueDescription("数据库文件名")
+    val file: String = "sctimetable.db"
+)
+
+@Serializable
+data class MySQLorMariaDB(
     @ValueDescription("""
         数据库地址，支持MariaDB和MySQL数据库.
         默认值：localhost
