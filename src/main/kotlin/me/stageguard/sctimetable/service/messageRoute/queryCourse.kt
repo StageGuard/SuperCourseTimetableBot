@@ -63,22 +63,25 @@ suspend fun FriendMessageEvent.queryCourse(matchResult: MatchResult) {
 
     Database.suspendQuery {
         val user = User.find { Users.qq eq subject.id }
-        if (!user.empty()) {
-            val schoolTimetable = ScheduleListenerService.getSchoolTimetable(user.first().schoolId)
+        if (user.empty()) {
+            subject.sendMessage("你还没有登录超级课表，无法查看${matchResult.groupValues[1]}课程，请先登录超级课表。")
+            return@suspendQuery
+        }
 
-            val courses = queryFromDatabase(subject.id, user.first().schoolId, whichDay)
-            var index = 1
-            subject.sendMessage(if (courses.isEmpty()) "${matchResult.groupValues[1]}没有课程。" else courses.joinToString("\n") {
-                "${index++}. " + it.courseName + "(${
-                    schoolTimetable[it.startSection - 1].first.let { stamp ->
-                        "${(stamp - (stamp % 60)) / 60}:${(stamp % 60).let { min -> if (min < 10) ("0$min") else min }}"
-                    }
-                }到${
-                    schoolTimetable[it.endSection - 1].second.let { stamp ->
-                        "${(stamp - (stamp % 60)) / 60}:${(stamp % 60).let { min -> if (min < 10) ("0$min") else min }}"
-                    }
-                })在${it.locale}"
-            })
-        } else subject.sendMessage("你还没有登录超级课表，无法查看${matchResult.groupValues[1]}课程")
+        val schoolTimetable = ScheduleListenerService.getSchoolTimetable(user.first().schoolId)
+
+        val courses = queryFromDatabase(subject.id, user.first().schoolId, whichDay)
+        var index = 1
+        subject.sendMessage(if (courses.isEmpty()) "${matchResult.groupValues[1]}没有课程。" else courses.joinToString("\n") {
+            "${index++}. " + it.courseName + "(${
+                schoolTimetable[it.startSection - 1].first.let { stamp ->
+                    "${(stamp - (stamp % 60)) / 60}:${(stamp % 60).let { min -> if (min < 10) ("0$min") else min }}"
+                }
+            }到${
+                schoolTimetable[it.endSection - 1].second.let { stamp ->
+                    "${(stamp - (stamp % 60)) / 60}:${(stamp % 60).let { min -> if (min < 10) ("0$min") else min }}"
+                }
+            })在${it.locale}"
+        })
     }
 }

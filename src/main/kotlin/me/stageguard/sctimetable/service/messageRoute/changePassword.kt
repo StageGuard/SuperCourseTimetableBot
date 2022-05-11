@@ -19,7 +19,6 @@ import me.stageguard.sctimetable.utils.exception
 import me.stageguard.sctimetable.utils.finish
 import me.stageguard.sctimetable.utils.interactiveConversation
 import net.mamoe.mirai.event.events.FriendMessageEvent
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import kotlin.contracts.ExperimentalContracts
 
 @OptIn(ExperimentalContracts::class)
@@ -39,6 +38,6 @@ suspend fun FriendMessageEvent.changePassword(coroutineScope: CoroutineScope) {
             }.exception {
                 subject.sendMessage("长时间未输入新的密码，请重新发送\"修改密码\"。")
             }
-        } else subject.sendMessage("你还没有登录超级课表，无法修改密码")
+        } else subject.sendMessage("你还没有登录超级课表，无法修改密码。")
     }
 }

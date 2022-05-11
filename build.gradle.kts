@@ -9,9 +9,8 @@ group = "KonnyakuCamp"
 version = "0.4.7"
 
 repositories {
-    mavenLocal()
-    jcenter()
     mavenCentral()
+    mavenLocal()
     gradlePluginPortal()
 }
 

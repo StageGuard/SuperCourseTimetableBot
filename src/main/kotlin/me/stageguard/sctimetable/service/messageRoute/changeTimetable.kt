@@ -28,6 +28,11 @@ private val TIME_PERIOD_EXPRESSION = Pattern.compile("(\\d){1,2}[:：](\\d){1,2}
 suspend fun FriendMessageEvent.changeTimetable(coroutineScope: CoroutineScope) {
     Database.suspendQuery {
         val thisUser = User.find { Users.qq eq subject.id }
+        if (thisUser.empty()) {
+            subject.sendMessage("你还没有登录超级课表，无法修改时间表，请先登录超级课表。")
+            return@suspendQuery
+        }
+
         val schoolTimetable =
             SchoolTimetable.find { SchoolTimetables.schoolId eq thisUser.first().schoolId }.first()
         interactiveConversation(coroutineScope, eachTimeLimit = 30000L, eachTryLimit = 5) {
