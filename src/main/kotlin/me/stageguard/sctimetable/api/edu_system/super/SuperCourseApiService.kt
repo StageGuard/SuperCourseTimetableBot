@@ -9,12 +9,11 @@
 package me.stageguard.sctimetable.api.edu_system.`super`
 
 import io.ktor.client.HttpClient
+import io.ktor.client.call.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import me.stageguard.sctimetable.service.TimeProviderService
@@ -37,7 +36,6 @@ data class LoginInfoData(
     val password: String
 )
 
-@ExperimentalSerializationApi
 object SuperCourseApiService {
 
     private const val BASE_URL: String = "http://120.55.151.61"
@@ -76,7 +74,7 @@ object SuperCourseApiService {
         password: String,
         cookieBlock: ((LoginCookieData) -> Unit)? = null
     ) : Either<ErrorLoginReceiptDTO, LoginReceiptDTO> = try {
-        client.post<HttpStatement> {
+        val response = client.post {
             url("$BASE_URL/V2/StudentSkip/loginCheckV4.action")
             parameter("account", EncryptionUtils.encrypt(username))
             parameter("password", EncryptionUtils.encrypt(password))
@@ -87,36 +85,35 @@ object SuperCourseApiService {
             parameter("phoneModel", PHONE_MODEL)
             parameter("updateInfo", false)
             parameter("channel", "ppMarket")
-        }.execute { response ->
-            var cookieList: List<String> = arrayListOf("", "")
-            response.headers.forEach { s: String, list: List<String> ->
-                if (s.contains("set-cookie")) {
-                    cookieList = list
-                    return@forEach
-                }
-            }
-            cookieBlock?.invoke(LoginCookieData(cookieList[0].let {
-                val jSessionMatcher = jSessionIdRegExp.matcher(it)
-                if(jSessionMatcher.find()) {
-                    jSessionMatcher.group(1)
-                } else ""
-            }, cookieList[1].let {
-                val serverIdMatcher = serverIdRegexp.matcher(it)
-                if(serverIdMatcher.find()) {
-                    serverIdMatcher.group(1)
-                } else ""
-            }))
-            val result = (response.content.readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}")
-            if(Pattern.compile("errorStr").matcher(result).find()) {
-                Either(try {
-                    json.decodeFromString(result)
-                } catch (ignored: Exception) {
-                    ErrorLoginReceiptDTO(__InternalErrorLoginMsg(result), 1)
-                } )
-            } else {
-                Either.invoke<ErrorLoginReceiptDTO, LoginReceiptDTO>(json.decodeFromString<LoginReceiptDTO>(result))
-            }
+        }
 
+        var cookieList: List<String> = arrayListOf("", "")
+        response.headers.forEach { s: String, list: List<String> ->
+            if (s.contains("set-cookie")) {
+                cookieList = list
+                return@forEach
+            }
+        }
+        cookieBlock?.invoke(LoginCookieData(cookieList[0].let {
+            val jSessionMatcher = jSessionIdRegExp.matcher(it)
+            if(jSessionMatcher.find()) {
+                jSessionMatcher.group(1)
+            } else ""
+        }, cookieList[1].let {
+            val serverIdMatcher = serverIdRegexp.matcher(it)
+            if(serverIdMatcher.find()) {
+                serverIdMatcher.group(1)
+            } else ""
+        }))
+        val result = (response.body<ByteReadChannel>().readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}")
+        if(Pattern.compile("errorStr").matcher(result).find()) {
+            Either(try {
+                json.decodeFromString(result)
+            } catch (ignored: Exception) {
+                ErrorLoginReceiptDTO(__InternalErrorLoginMsg(result), 1)
+            } )
+        } else {
+            Either.invoke<ErrorLoginReceiptDTO, LoginReceiptDTO>(json.decodeFromString<LoginReceiptDTO>(result))
         }
     } catch (ex: Exception) {
         Either(ErrorLoginReceiptDTO(__InternalErrorLoginMsg(ex.toString(),0, 0), 1))
@@ -136,7 +133,7 @@ object SuperCourseApiService {
      * 成功则返回[CourseReceiptDTO]，失败则返回[ErrorCourseReceiptDTO]
      */
     suspend fun getCourses(jSessionId: String, serverId: String) : Either<ErrorCourseReceiptDTO, CourseReceiptDTO> = try {
-        client.post<HttpStatement> {
+        val response = client.post {
             url("$BASE_URL/V2/Course/getCourseTableFromServer.action")
             header("Cookie", "JSESSIONID=$jSessionId;SERVERID=$serverId")
             parameter("beginYear", TimeProviderService.currentSemesterBeginYear)
@@ -146,16 +143,16 @@ object SuperCourseApiService {
             parameter("phoneBrand", PHONE_BRAND)
             parameter("phoneVersion", PHONE_VERSION)
             parameter("phoneModel", PHONE_MODEL)
-        }.execute {
-            val result = it.content.readUTF8Line() ?: "{\"message\":\"Empty response content.\",\"title\":\"\"}"
+        }
+
+        val result = response.body<ByteReadChannel>().readUTF8Line() ?: "{\"message\":\"Empty response content.\",\"title\":\"\"}"
+        try {
+            Either.invoke<ErrorCourseReceiptDTO, CourseReceiptDTO>(json.decodeFromString<CourseReceiptDTO>(result))
+        } catch (error: Exception) {
             try {
-                Either.invoke<ErrorCourseReceiptDTO, CourseReceiptDTO>(json.decodeFromString<CourseReceiptDTO>(result))
-            } catch (error: Exception) {
-                try {
-                    Either.invoke(json.decodeFromString(result))
-                } catch (ex: Exception) {
-                    Either.invoke(ErrorCourseReceiptDTO("decode error", result))
-                }
+                Either.invoke(json.decodeFromString(result))
+            } catch (ex: Exception) {
+                Either.invoke(ErrorCourseReceiptDTO("decode error", result))
             }
         }
     } catch (ex: Exception) {

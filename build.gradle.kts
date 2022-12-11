@@ -1,12 +1,12 @@
 
 plugins {
-    kotlin("jvm") version "1.5.30"
-    kotlin("plugin.serialization") version "1.5.20"
-    id("net.mamoe.mirai-console") version "2.8.3"
+    kotlin("jvm") version "1.7.0"
+    kotlin("plugin.serialization") version "1.7.0"
+    id("net.mamoe.mirai-console") version "2.13.0"
 }
 
 group = "KonnyakuCamp"
-version = "0.4.7"
+version = "0.4.8"
 
 repositories {
     mavenCentral()
@@ -33,11 +33,13 @@ dependencies {
     implementation("org.quartz-scheduler:quartz:$quartzVersion")
     implementation("net.mamoe:mirai-slf4j-bridge:$miraiSlf4jBridgeVersion")
     implementation("org.xerial:sqlite-jdbc:$sqliteVersion")
+    implementation("io.ktor:ktor-client-core:2.2.1")
+    implementation("io.ktor:ktor-client-okhttp:2.2.1")
     //implementation("org.slf4j:slf4j-simple:1.7.1")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = "11"
 }
 
 tasks.test {
