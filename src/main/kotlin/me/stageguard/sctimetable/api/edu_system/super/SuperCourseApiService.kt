@@ -48,9 +48,6 @@ object SuperCourseApiService {
     private val client = HttpClient(OkHttp)
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val jSessionIdRegExp = Pattern.compile("JSESSIONID=([0-9A-F]+-[a-z1-9]+);")
-    private val serverIdRegexp = Pattern.compile("SERVERID=([0-9a-f|]+);")
-
     val pkey
         get() = "ia7sgeb8woqbq2r9"
 
@@ -87,24 +84,17 @@ object SuperCourseApiService {
             parameter("channel", "ppMarket")
         }
 
-        var cookieList: List<String> = arrayListOf("", "")
+        val cookies: MutableMap<String, String> = mutableMapOf()
         response.headers.forEach { s: String, list: List<String> ->
             if (s.contains("set-cookie")) {
-                cookieList = list
+                list.forEach { v ->
+                    val sp = v.split('=')
+                    cookies[sp[0]] = sp[1].split(';')[0]
+                }
                 return@forEach
             }
         }
-        cookieBlock?.invoke(LoginCookieData(cookieList[0].let {
-            val jSessionMatcher = jSessionIdRegExp.matcher(it)
-            if(jSessionMatcher.find()) {
-                jSessionMatcher.group(1)
-            } else ""
-        }, cookieList[1].let {
-            val serverIdMatcher = serverIdRegexp.matcher(it)
-            if(serverIdMatcher.find()) {
-                serverIdMatcher.group(1)
-            } else ""
-        }))
+        cookieBlock?.invoke(LoginCookieData(cookies["JSESSIONID"] ?: "", cookies["SERVERID"] ?: ""))
         val result = (response.body<ByteReadChannel>().readUTF8Line() ?: "{\"data\":{\"errorStr\":\"Empty response content.\"},\"status\":1}")
         if(Pattern.compile("errorStr").matcher(result).find()) {
             Either(try {
