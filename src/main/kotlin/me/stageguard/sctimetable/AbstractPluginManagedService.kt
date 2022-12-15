@@ -18,14 +18,10 @@ import kotlin.coroutines.CoroutineContext
 abstract class AbstractPluginManagedService(ctx: CoroutineContext? = null) : CoroutineScope {
 
     abstract val TAG: String
-    final override val coroutineContext: CoroutineContext
-        get() = SupervisorJob(PluginMain.coroutineContext.job)
-
-    init {
-        if(ctx != null) {
-            coroutineContext.plus(ctx)
+    final override val coroutineContext: CoroutineContext =
+        SupervisorJob(PluginMain.coroutineContext.job).run {
+            if (ctx != null) plus(ctx) else this
         }
-    }
 
     protected abstract suspend fun main()
 
